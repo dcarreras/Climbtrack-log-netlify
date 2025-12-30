@@ -1,0 +1,10 @@
+project_id = "mjgopyhssbletavwlzzs"
+
+[functions.strava-auth]
+verify_jwt = false
+
+[functions.strava-sync]
+verify_jwt = false
+
+[functions.session-summary]
+verify_jwt = false
