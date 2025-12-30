@@ -16,25 +16,25 @@ const sessionTypeOptions: { value: SessionTypeValue; label: string; description:
     value: 'boulder', 
     label: 'Boulder', 
     description: 'Solo bloques',
-    icon: <Mountain className="h-8 w-8" />
+    icon: <Mountain className="h-6 w-6 sm:h-7 sm:w-7" />
   },
   { 
     value: 'rope', 
     label: 'Vías', 
     description: 'Autobelay o cuerda',
-    icon: <Dumbbell className="h-8 w-8" />
+    icon: <Dumbbell className="h-6 w-6 sm:h-7 sm:w-7" />
   },
   { 
     value: 'hybrid', 
     label: 'Mixta', 
     description: 'Bloques y vías',
-    icon: <Layers className="h-8 w-8" />
+    icon: <Layers className="h-6 w-6 sm:h-7 sm:w-7" />
   },
   { 
     value: 'running', 
     label: 'Running', 
     description: 'Carrera y trail',
-    icon: <Footprints className="h-8 w-8" />
+    icon: <Footprints className="h-6 w-6 sm:h-7 sm:w-7" />
   },
 ];
 
@@ -44,13 +44,13 @@ export default function SessionTypeStep({ value, onChange, onNext, onBack }: Ses
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="text-center">
         <h2 className="text-2xl font-bold">¿Qué tipo de sesión vas a registrar?</h2>
         <p className="text-muted-foreground mt-2">Selecciona el tipo de escalada</p>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-3">
         {sessionTypeOptions.map((option) => (
           <Card
             key={option.value}
@@ -59,12 +59,12 @@ export default function SessionTypeStep({ value, onChange, onNext, onBack }: Ses
             }`}
             onClick={() => handleSelect(option.value)}
           >
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className={`p-3 rounded-full ${value === option.value ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
+            <CardContent className="flex items-center gap-3 p-4 sm:p-5">
+              <div className={`p-2.5 sm:p-3 rounded-full ${value === option.value ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                 {option.icon}
               </div>
               <div>
-                <CardTitle className="text-lg">{option.label}</CardTitle>
+                <CardTitle className="text-base sm:text-lg">{option.label}</CardTitle>
                 <CardDescription>{option.description}</CardDescription>
               </div>
             </CardContent>

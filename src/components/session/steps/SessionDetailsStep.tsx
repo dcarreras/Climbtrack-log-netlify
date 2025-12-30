@@ -23,13 +23,26 @@ export interface SessionDetailsData {
 interface SessionDetailsStepProps {
   value: SessionDetailsData;
   onChange: (value: SessionDetailsData) => void;
+  onDurationChange?: () => void;
+  onUseTimerDuration?: () => void;
+  timerLabel?: string;
+  timerMinutes?: number;
   onNext: () => void;
   onBack: () => void;
 }
 
 const moods = ['😤 Frustrado', '😐 Normal', '😊 Bien', '🔥 Motivado', '💪 Fuerte'];
 
-export default function SessionDetailsStep({ value, onChange, onNext, onBack }: SessionDetailsStepProps) {
+export default function SessionDetailsStep({
+  value,
+  onChange,
+  onDurationChange,
+  onUseTimerDuration,
+  timerLabel,
+  timerMinutes,
+  onNext,
+  onBack,
+}: SessionDetailsStepProps) {
   const { data: gyms = [] } = useQuery({
     queryKey: ['gyms'],
     queryFn: async () => {
@@ -44,27 +57,27 @@ export default function SessionDetailsStep({ value, onChange, onNext, onBack }: 
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Button variant="ghost" onClick={onBack}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Volver
       </Button>
 
       <div className="text-center">
-        <h2 className="text-2xl font-bold">Detalles de la sesión</h2>
+        <h2 className="text-xl sm:text-2xl font-bold">Detalles de la sesión</h2>
         <p className="text-muted-foreground mt-2">Información general sobre tu sesión</p>
       </div>
 
       {/* Date & Gym */}
       <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Calendar className="h-5 w-5 text-primary" />
             Cuándo y Dónde
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid md:grid-cols-2 gap-4">
+        <CardContent className="space-y-4 p-3 pt-0 sm:p-4 sm:pt-0">
+          <div className="grid md:grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="date">Fecha</Label>
               <Input
@@ -99,37 +112,58 @@ export default function SessionDetailsStep({ value, onChange, onNext, onBack }: 
 
       {/* Duration */}
       <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Clock className="h-5 w-5 text-primary" />
             Duración: {value.durationMin} min
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
           <Slider
             value={[value.durationMin]}
-            onValueChange={(v) => update({ durationMin: v[0] })}
-            min={15}
+            onValueChange={(v) => {
+              onDurationChange?.();
+              update({ durationMin: v[0] });
+            }}
+            min={5}
             max={240}
-            step={15}
-            className="py-4"
+            step={5}
+            className="py-3"
           />
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>15 min</span>
+            <span>5 min</span>
             <span>4 horas</span>
           </div>
+          {timerLabel && (
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                Tiempo en curso: <span className="font-mono text-foreground">{timerLabel}</span>
+              </span>
+              {onUseTimerDuration && timerMinutes !== undefined && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={onUseTimerDuration}
+                >
+                  Usar tiempo
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* RPE & Mood */}
       <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
             <Brain className="h-5 w-5 text-primary" />
             Esfuerzo y Sensaciones
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 p-3 pt-0 sm:p-4 sm:pt-0">
           <div className="space-y-2">
             <Label>RPE (Esfuerzo Percibido): {value.rpe}/10</Label>
             <Slider
@@ -138,7 +172,7 @@ export default function SessionDetailsStep({ value, onChange, onNext, onBack }: 
               min={1}
               max={10}
               step={1}
-              className="py-4"
+              className="py-3"
             />
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>Fácil</span>

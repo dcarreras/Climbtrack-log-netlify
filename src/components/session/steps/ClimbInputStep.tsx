@@ -151,24 +151,40 @@ export default function ClimbInputStep({
 
   const progress = ((currentIndex + 1) / totalClimbs) * 100;
   const isRoute = currentClimb.type === 'autobelay' || currentClimb.type === 'rope';
+  const nextLabel = currentIndex < totalClimbs - 1 ? 'Siguiente escalada' : 'Continuar con los detalles';
 
   return (
-    <div className="space-y-6">
-      <Button variant="ghost" onClick={handlePrev}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        {currentIndex === 0 ? 'Volver' : 'Anterior'}
-      </Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" onClick={handlePrev}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          {currentIndex === 0 ? 'Volver' : 'Anterior'}
+        </Button>
+        <Button
+          className="glow-primary text-xs sm:text-sm"
+          size="sm"
+          onClick={handleNext}
+          disabled={!isValid()}
+        >
+          {nextLabel}
+          {currentIndex < totalClimbs - 1 ? (
+            <ArrowRight className="ml-2 h-4 w-4" />
+          ) : (
+            <Check className="ml-2 h-4 w-4" />
+          )}
+        </Button>
+      </div>
 
       <div className="text-center">
-        <h2 className="text-2xl font-bold">Escalada {currentIndex + 1} de {totalClimbs}</h2>
-        <Progress value={progress} className="mt-4" />
+        <h2 className="text-xl sm:text-2xl font-bold">Escalada {currentIndex + 1} de {totalClimbs}</h2>
+        <Progress value={progress} className="mt-3" />
       </div>
 
       <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle>Tipo de escalada</CardTitle>
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="text-base sm:text-lg">Tipo de escalada</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 p-3 pt-0 sm:p-4 sm:pt-0">
           {/* Climb Type Selection - only show for hybrid sessions */}
           {sessionType === 'hybrid' && (
             <div className="grid grid-cols-3 gap-2">
@@ -220,20 +236,20 @@ export default function ClimbInputStep({
 
       {/* Grade Selection */}
       <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle>
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="text-base sm:text-lg">
             {currentClimb.type === 'boulder' ? 'Color del bloque' : 'Grado (Escala Francesa)'}
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
           {currentClimb.type === 'boulder' ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap gap-3 justify-center">
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 sm:gap-3 justify-center">
                 {boulderColorBands.map((color) => (
                   <button
                     key={color.value}
                     type="button"
-                    className={`w-12 h-12 rounded-full transition-all ${color.class} ${
+                    className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full transition-all ${color.class} ${
                       currentClimb.colorBand === color.value 
                         ? 'ring-4 ring-primary ring-offset-2 ring-offset-background scale-110' 
                         : 'hover:scale-105'
@@ -252,13 +268,13 @@ export default function ClimbInputStep({
               value={currentClimb.gradeValue || "none"} 
               onValueChange={(v) => updateCurrentClimb({ gradeValue: v === "none" ? null : v })}
             >
-              <SelectTrigger className="text-lg h-14">
+              <SelectTrigger className="text-base h-11 sm:text-lg sm:h-14">
                 <SelectValue placeholder="Selecciona el grado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Selecciona el grado</SelectItem>
                 {frenchRouteGrades.map((grade) => (
-                  <SelectItem key={grade} value={grade} className="text-lg">
+                  <SelectItem key={grade} value={grade} className="text-base sm:text-lg">
                     {grade}
                   </SelectItem>
                 ))}
@@ -270,10 +286,10 @@ export default function ClimbInputStep({
 
       {/* Result - Different UI for Boulder vs Routes */}
       <Card className="card-elevated">
-        <CardHeader>
-          <CardTitle>Resultado</CardTitle>
+        <CardHeader className="p-3 sm:p-4">
+          <CardTitle className="text-base sm:text-lg">Resultado</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3 p-3 pt-0 sm:p-4 sm:pt-0">
           {isRoute ? (
             // Routes: Flash / Red Point / Tried
             <>
@@ -298,14 +314,14 @@ export default function ClimbInputStep({
               
               {/* Show attempts for redpoint and tried */}
               {(currentClimb.sendType === 'redpoint' || currentClimb.sendType === 'tried') && (
-                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-                  <Label className="text-base">Intentos</Label>
+                <div className="flex items-center justify-between p-3 sm:p-4 bg-muted rounded-lg">
+                  <Label className="text-sm sm:text-base">Intentos</Label>
                   <div className="flex items-center gap-3">
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-10 w-10"
+                      className="h-9 w-9 sm:h-10 sm:w-10"
                       onClick={() => updateCurrentClimb({ 
                         attempts: Math.max(currentClimb.sendType === 'redpoint' ? 2 : 1, currentClimb.attempts - 1) 
                       })}
@@ -313,12 +329,12 @@ export default function ClimbInputStep({
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="text-2xl font-bold w-12 text-center">{currentClimb.attempts}</span>
+                    <span className="text-xl sm:text-2xl font-bold w-10 sm:w-12 text-center">{currentClimb.attempts}</span>
                     <Button
                       type="button"
                       variant="outline"
                       size="icon"
-                      className="h-10 w-10"
+                      className="h-9 w-9 sm:h-10 sm:w-10"
                       onClick={() => updateCurrentClimb({ attempts: currentClimb.attempts + 1 })}
                     >
                       <Plus className="h-4 w-4" />
@@ -335,33 +351,33 @@ export default function ClimbInputStep({
                   type="button"
                   onClick={() => updateCurrentClimb({ sent: true })}
                   className={cn(
-                    'p-4 rounded-lg border-2 transition-all text-center',
+                    'p-3 sm:p-4 rounded-lg border-2 transition-all text-center',
                     currentClimb.sent
                       ? 'border-green-500 bg-green-500/10'
                       : 'border-border hover:border-green-500/50'
                   )}
                 >
-                  <Check className="h-6 w-6 mx-auto mb-1 text-green-500" />
-                  <p className="font-semibold">Completado</p>
+                  <Check className="h-5 w-5 sm:h-6 sm:w-6 mx-auto mb-1 text-green-500" />
+                  <p className="font-semibold text-sm sm:text-base">Completado</p>
                 </button>
                 <button
                   type="button"
                   onClick={() => updateCurrentClimb({ sent: false })}
                   className={cn(
-                    'p-4 rounded-lg border-2 transition-all text-center',
+                    'p-3 sm:p-4 rounded-lg border-2 transition-all text-center',
                     !currentClimb.sent
                       ? 'border-orange-500 bg-orange-500/10'
                       : 'border-border hover:border-orange-500/50'
                   )}
                 >
-                  <span className="text-2xl mb-1 block">🔄</span>
-                  <p className="font-semibold">Intentando</p>
+                  <span className="text-xl sm:text-2xl mb-1 block">🔄</span>
+                  <p className="font-semibold text-sm sm:text-base">Intentando</p>
                 </button>
               </div>
               
-              <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+              <div className="flex items-center justify-between p-3 sm:p-4 bg-muted rounded-lg">
                 <div>
-                  <Label className="text-base">Intentos</Label>
+                  <Label className="text-sm sm:text-base">Intentos</Label>
                   {currentClimb.sent && currentClimb.attempts === 1 && (
                     <p className="text-xs text-primary font-medium">¡Flash! ⚡</p>
                   )}
@@ -371,18 +387,18 @@ export default function ClimbInputStep({
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
                     onClick={() => updateCurrentClimb({ attempts: Math.max(1, currentClimb.attempts - 1) })}
                     disabled={currentClimb.attempts <= 1}
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
-                  <span className="text-2xl font-bold w-12 text-center">{currentClimb.attempts}</span>
+                    <span className="text-xl sm:text-2xl font-bold w-10 sm:w-12 text-center">{currentClimb.attempts}</span>
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
-                    className="h-10 w-10"
+                    className="h-9 w-9 sm:h-10 sm:w-10"
                     onClick={() => updateCurrentClimb({ attempts: currentClimb.attempts + 1 })}
                   >
                     <Plus className="h-4 w-4" />
@@ -396,10 +412,10 @@ export default function ClimbInputStep({
 
       {/* Category Tags */}
       <Card className="card-elevated">
-        <CardHeader className="pb-3">
+        <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-3">
           <CardTitle className="text-base">Categorías (opcional)</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
           <div className="flex flex-wrap gap-2">
             {climbCategoryTags.map((tag) => {
               const isSelected = currentClimb.tags?.includes(tag.value);
@@ -415,7 +431,7 @@ export default function ClimbInputStep({
                     updateCurrentClimb({ tags: newTags });
                   }}
                   className={cn(
-                    'px-3 py-2 rounded-lg border transition-all text-sm flex items-center gap-1.5',
+                    'px-2.5 py-1.5 rounded-lg border transition-all text-xs sm:text-sm flex items-center gap-1.5',
                     isSelected
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border hover:border-primary/50'
@@ -432,13 +448,13 @@ export default function ClimbInputStep({
 
       {/* Quick Photo Capture */}
       <Card className="card-elevated">
-        <CardHeader className="pb-3">
+        <CardHeader className="p-3 pb-2 sm:p-4 sm:pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Camera className="h-4 w-4" />
             Fotos de la escalada
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
           <QuickPhotoCapture 
             photos={photos}
             onPhotosChange={onPhotosChange}
@@ -446,24 +462,6 @@ export default function ClimbInputStep({
         </CardContent>
       </Card>
 
-      <Button 
-        className="w-full glow-primary" 
-        size="lg"
-        onClick={handleNext}
-        disabled={!isValid()}
-      >
-        {currentIndex < totalClimbs - 1 ? (
-          <>
-            Siguiente escalada
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </>
-        ) : (
-          <>
-            <Check className="mr-2 h-4 w-4" />
-            Continuar con los detalles
-          </>
-        )}
-      </Button>
     </div>
   );
 }

@@ -19,7 +19,7 @@ export default function ClimbCountStep({ sessionType, count, onChange, onNext, o
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Button variant="ghost" onClick={onBack} className="mb-4">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Volver
@@ -31,21 +31,21 @@ export default function ClimbCountStep({ sessionType, count, onChange, onNext, o
       </div>
 
       <Card className="card-elevated">
-        <CardContent className="p-8">
-          <div className="flex items-center justify-center gap-6">
+        <CardContent className="p-5 sm:p-6">
+          <div className="flex items-center justify-center gap-4">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-14 w-14 rounded-full text-2xl"
+              className="h-11 w-11 sm:h-12 sm:w-12 rounded-full text-xl sm:text-2xl"
               onClick={() => onChange(Math.max(1, count - 1))}
               disabled={count <= 1}
             >
-              <Minus className="h-6 w-6" />
+              <Minus className="h-5 w-5 sm:h-6 sm:w-6" />
             </Button>
             
             <div className="text-center">
-              <span className="text-6xl font-bold">{count}</span>
+              <span className="text-5xl sm:text-6xl font-bold">{count}</span>
               <p className="text-muted-foreground mt-2">{getLabel()}</p>
             </div>
             
@@ -53,10 +53,10 @@ export default function ClimbCountStep({ sessionType, count, onChange, onNext, o
               type="button"
               variant="outline"
               size="icon"
-              className="h-14 w-14 rounded-full text-2xl"
+              className="h-11 w-11 sm:h-12 sm:w-12 rounded-full text-xl sm:text-2xl"
               onClick={() => onChange(count + 1)}
             >
-              <Plus className="h-6 w-6" />
+              <Plus className="h-5 w-5 sm:h-6 sm:w-6" />
             </Button>
           </div>
         </CardContent>

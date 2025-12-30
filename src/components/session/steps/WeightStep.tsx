@@ -14,7 +14,7 @@ interface WeightStepProps {
 
 export default function WeightStep({ value, onChange, onSubmit, onBack, isSubmitting }: WeightStepProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Button variant="ghost" onClick={onBack}>
         <ArrowLeft className="mr-2 h-4 w-4" />
         Volver
@@ -26,7 +26,7 @@ export default function WeightStep({ value, onChange, onSubmit, onBack, isSubmit
       </div>
 
       <Card className="card-elevated">
-        <CardHeader>
+        <CardHeader className="p-3 sm:p-4">
           <CardTitle className="flex items-center gap-2">
             <Scale className="h-5 w-5 text-primary" />
             Peso actual
@@ -35,7 +35,7 @@ export default function WeightStep({ value, onChange, onSubmit, onBack, isSubmit
             Registra tu peso para hacer un seguimiento a largo plazo
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
           <div className="flex items-center gap-4 justify-center">
             <Input
               type="number"
@@ -43,7 +43,7 @@ export default function WeightStep({ value, onChange, onSubmit, onBack, isSubmit
               placeholder="70.5"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              className="max-w-32 text-2xl text-center h-14"
+              className="max-w-28 text-xl sm:text-2xl text-center h-12 sm:h-14"
             />
             <span className="text-xl text-muted-foreground">kg</span>
           </div>
