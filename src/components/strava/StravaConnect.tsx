@@ -48,7 +48,7 @@ export const StravaConnect = () => {
         </CardTitle>
         <CardDescription>
           {isConnected
-            ? 'Sincroniza tus actividades de running automáticamente'
+            ? 'Sincroniza tus actividades de running automaticamente'
             : 'Conecta tu cuenta de Strava para importar actividades'}
         </CardDescription>
       </CardHeader>
