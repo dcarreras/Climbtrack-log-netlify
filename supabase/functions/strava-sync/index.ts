@@ -6,6 +6,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://radiant-malasada-d6751a.netlify.app',
 ];
 
 // Add any production domains dynamically from environment
@@ -17,7 +18,8 @@ if (PRODUCTION_URL) {
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) || 
-    origin.endsWith('.supabase.co')
+    origin.endsWith('.supabase.co') ||
+    origin.endsWith('.netlify.app')
   );
   
   return {

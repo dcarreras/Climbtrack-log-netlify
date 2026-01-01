@@ -6,6 +6,7 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8080',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://radiant-malasada-d6751a.netlify.app',
 ];
 
 // Add any production domains dynamically from environment
@@ -17,7 +18,8 @@ if (PRODUCTION_URL) {
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) || 
-    origin.endsWith('.supabase.co')
+    origin.endsWith('.supabase.co') ||
+    origin.endsWith('.netlify.app')
   );
   
   return {
@@ -96,7 +98,8 @@ serve(async (req) => {
                 const allowedOrigins = ${allowedOriginsJson};
                 const isAllowedOrigin = window.opener && (
                   allowedOrigins.includes(window.opener.origin) ||
-                  window.opener.origin.endsWith('.supabase.co')
+                  window.opener.origin.endsWith('.supabase.co') ||
+                  window.opener.origin.endsWith('.netlify.app')
                 );
                 if (isAllowedOrigin) {
                   window.opener.postMessage({ type: 'strava-auth-error', error: 'Authorization denied' }, window.opener.origin);
@@ -168,7 +171,8 @@ serve(async (req) => {
               const allowedOrigins = ${allowedOriginsJson};
               const isAllowedOrigin = window.opener && (
                 allowedOrigins.includes(window.opener.origin) ||
-                window.opener.origin.endsWith('.supabase.co')
+                window.opener.origin.endsWith('.supabase.co') ||
+                window.opener.origin.endsWith('.netlify.app')
               );
               if (isAllowedOrigin) {
                 window.opener.postMessage({ type: 'strava-auth-success' }, window.opener.origin);
