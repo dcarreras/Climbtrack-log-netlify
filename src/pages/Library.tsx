@@ -7,9 +7,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { removeAttachmentFiles } from '@/lib/storage';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
 } from '@/components/ui/dialog';
 import { 
   Image, 
@@ -76,12 +80,7 @@ export default function Library() {
 
   const deleteAttachment = useMutation({
     mutationFn: async (attachment: AttachmentWithClimb) => {
-      const url = new URL(attachment.file_url);
-      const pathParts = url.pathname.split('/');
-      const bucketIndex = pathParts.findIndex(p => p === 'climbing-media');
-      const filePath = pathParts.slice(bucketIndex + 1).join('/');
-
-      await supabase.storage.from('climbing-media').remove([filePath]);
+      await removeAttachmentFiles([attachment]);
       
       const { error } = await supabase
         .from('attachments')
@@ -119,127 +118,138 @@ export default function Library() {
     pink: 'bg-pink-500',
   };
 
+  const T = {
+    bg: '#050505', ink: '#FAFAF9', inkFaint: 'rgba(250,250,249,0.38)',
+    inkDim: 'rgba(250,250,249,0.16)', rule: 'rgba(250,250,249,0.09)',
+    sans: "'Urbanist', system-ui, sans-serif",
+    mono: "'JetBrains Mono', 'SF Mono', monospace",
+  };
+
+  const filterOpts: { k: 'all' | 'photo' | 'video'; l: string }[] = [
+    { k: 'all', l: 'Todo' },
+    { k: 'photo', l: 'Fotos' },
+    { k: 'video', l: 'Videos' },
+  ];
+
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div style={{ background: T.bg, minHeight: '100vh', paddingBottom: 100 }}>
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/home')}>
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">Biblioteca Multimedia</h1>
-            <p className="text-muted-foreground">
-              Todas tus fotos y videos de escalada
-            </p>
+        <div style={{ padding: '28px 20px 24px' }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, color: T.inkFaint,
+            textTransform: 'uppercase', letterSpacing: '0.24em', marginBottom: 10 }}>
+            Archivo visual
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 42, color: T.ink, lineHeight: 0.95,
+            fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
+            Galería
           </div>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
-          <Card className="card-elevated">
-            <CardContent className="pt-6 text-center">
-              <Image className="h-5 w-5 text-primary mx-auto mb-1" />
-              <div className="text-2xl font-bold">{photos.length}</div>
-              <div className="text-xs text-muted-foreground">Fotos</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="pt-6 text-center">
-              <Video className="h-5 w-5 text-primary mx-auto mb-1" />
-              <div className="text-2xl font-bold">{videos.length}</div>
-              <div className="text-xs text-muted-foreground">Videos</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="pt-6 text-center">
-              <div className="text-2xl font-bold">{attachments?.length || 0}</div>
-              <div className="text-xs text-muted-foreground">Total</div>
-            </CardContent>
-          </Card>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+          borderTop: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }}>
+          {[
+            { value: photos.length, label: 'Fotos' },
+            { value: videos.length, label: 'Videos' },
+            { value: attachments?.length || 0, label: 'Total' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              padding: '16px 16px',
+              borderRight: i < 2 ? `1px solid ${T.rule}` : 'none',
+            }}>
+              <div style={{ fontFamily: T.sans, fontSize: 26, color: T.ink,
+                fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.value}</div>
+              <div style={{ fontFamily: T.sans, fontSize: 9, color: T.inkFaint,
+                textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 6, fontWeight: 500 }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Filters */}
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as any)}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="all">Todo</TabsTrigger>
-            <TabsTrigger value="photo">Fotos</TabsTrigger>
-            <TabsTrigger value="video">Videos</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div style={{ padding: '16px 20px 0' }}>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {filterOpts.map(f => (
+              <button key={f.k} onClick={() => setFilter(f.k)} style={{
+                padding: '8px 16px',
+                border: `1px solid ${filter === f.k ? T.ink : 'rgba(250,250,249,0.18)'}`,
+                background: filter === f.k ? T.ink : 'transparent',
+                color: filter === f.k ? T.bg : 'rgba(250,250,249,0.62)',
+                fontFamily: T.sans, fontSize: 10, letterSpacing: '0.16em',
+                textTransform: 'uppercase', cursor: 'pointer', fontWeight: filter === f.k ? 600 : 500,
+              }}>{f.l}</button>
+            ))}
+          </div>
+        </div>
 
         {/* Gallery Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="aspect-square bg-muted animate-pulse rounded-lg" />
-            ))}
-          </div>
-        ) : filteredAttachments.length === 0 ? (
-          <Card className="card-elevated">
-            <CardContent className="py-12 text-center">
-              <Image className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Sin contenido multimedia</h3>
-              <p className="text-muted-foreground">
+        <div style={{ padding: '20px 20px 0' }}>
+          {isLoading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+              {[...Array(6)].map((_, i) => (
+                <div key={i} style={{ aspectRatio: '1', background: 'rgba(250,250,249,0.04)' }} />
+              ))}
+            </div>
+          ) : filteredAttachments.length === 0 ? (
+            <div style={{ padding: '40px 0', textAlign: 'center',
+              border: `1px solid ${T.rule}` }}>
+              <div style={{ fontFamily: T.sans, fontSize: 15, color: T.ink,
+                fontWeight: 600, marginBottom: 8 }}>Sin contenido multimedia</div>
+              <div style={{ fontFamily: T.sans, fontSize: 13, color: T.inkFaint }}>
                 Sube fotos y videos en tus sesiones de escalada
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {filteredAttachments.map((attachment) => (
-              <div
-                key={attachment.id}
-                className="relative group aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer"
-                onClick={() => setSelectedMedia(attachment)}
-              >
-                {attachment.type === 'photo' ? (
-                  <img
-                    src={attachment.file_url}
-                    alt="Climbing photo"
-                    className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted relative">
-                    <video
-                      src={attachment.file_url}
-                      className="w-full h-full object-cover"
-                      muted
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <Play className="h-8 w-8 text-white" />
-                    </div>
-                  </div>
-                )}
-                
-                {/* Color band indicator for climb attachments */}
-                {attachment.climbs?.color_band && (
-                  <div 
-                    className={`absolute top-2 left-2 w-6 h-6 rounded-full border-2 border-white shadow-md ${colorMap[attachment.climbs.color_band]}`}
-                  />
-                )}
-                
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                  <Expand className="h-6 w-6 text-white" />
-                </div>
-                
-                {/* Date badge */}
-                {attachment.sessions?.date && (
-                  <div className="absolute bottom-2 left-2 right-2">
-                    <Badge variant="secondary" className="text-xs bg-black/60 text-white border-none">
-                      {format(new Date(attachment.sessions.date), 'dd MMM')}
-                    </Badge>
-                  </div>
-                )}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr md:1fr 1fr 1fr 1fr', gap: 6 }}>
+              {filteredAttachments.map((attachment) => (
+                <div
+                  key={attachment.id}
+                  style={{ position: 'relative', aspectRatio: '1', overflow: 'hidden',
+                    cursor: 'pointer', border: `1px solid ${T.rule}` }}
+                  onClick={() => setSelectedMedia(attachment)}
+                >
+                  {attachment.type === 'photo' ? (
+                    <img src={attachment.file_url} alt="Climbing photo"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', position: 'relative',
+                      background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <video src={attachment.file_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                      <div style={{ position: 'absolute', inset: 0, display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)' }}>
+                        <Play style={{ width: 28, height: 28, color: '#FAFAF9' }} />
+                      </div>
+                    </div>
+                  )}
+                  {attachment.climbs?.color_band && (
+                    <div className={`absolute top-2 left-2 w-5 h-5 rounded-full border-2 border-white ${colorMap[attachment.climbs.color_band]}`} />
+                  )}
+                  {attachment.sessions?.date && (
+                    <div style={{ position: 'absolute', bottom: 6, left: 6, right: 6 }}>
+                      <span style={{ padding: '3px 7px', background: 'rgba(5,5,5,0.75)',
+                        fontFamily: T.mono, fontSize: 9, color: T.ink, letterSpacing: '0.1em' }}>
+                        {format(new Date(attachment.sessions.date), 'dd MMM')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Lightbox Dialog */}
       <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
         <DialogContent className="max-w-4xl p-0 bg-black/95 border-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista ampliada del archivo</DialogTitle>
+            <DialogDescription>
+              Previsualización del archivo multimedia guardado en tu biblioteca.
+            </DialogDescription>
+          </DialogHeader>
           <div className="absolute top-4 right-4 z-10 flex gap-2">
             <Button
               variant="destructive"

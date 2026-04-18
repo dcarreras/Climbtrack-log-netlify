@@ -3,19 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Mountain, Footprints, TrendingUp, Timer, Target } from 'lucide-react';
 import ActivityDonutChart from '@/components/analytics/ActivityDonutChart';
 import WeeklyStackedBarChart from '@/components/analytics/WeeklyStackedBarChart';
 import ClimbDashboard from '@/components/dashboard/ClimbDashboard';
 import RunningDashboard from '@/components/dashboard/RunningDashboard';
+import BikeDashboard from '@/components/dashboard/BikeDashboard';
+import StrengthDashboard from '@/components/dashboard/StrengthDashboard';
 import TrainingAssistant from '@/components/dashboard/TrainingAssistant';
 import MonthlyComparison from '@/components/dashboard/MonthlyComparison';
 import { SessionData, Modality } from '@/utils/metricsUtils';
-import { cn } from '@/lib/utils';
 
 type TimePeriod = '7d' | '4w' | '12w' | '1y';
 
@@ -28,7 +24,7 @@ const PERIOD_DAYS: Record<TimePeriod, number> = {
 
 export default function Analytics() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'climb' | 'running'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'climb' | 'running' | 'bike' | 'strength'>('overview');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('4w');
   const [modality, setModality] = useState<Modality>('boulder');
 
@@ -88,147 +84,136 @@ export default function Analytics() {
     };
   }, [sessions, periodDays]);
 
+  const T = {
+    bg: '#050505', ink: '#FAFAF9', inkFaint: 'rgba(250,250,249,0.38)',
+    inkDim: 'rgba(250,250,249,0.16)', rule: 'rgba(250,250,249,0.09)',
+    sans: "'Urbanist', system-ui, sans-serif",
+    mono: "'JetBrains Mono', 'SF Mono', monospace",
+  };
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'climb', label: 'Escalada' },
+    { id: 'running', label: 'Running' },
+    { id: 'bike', label: 'Bici' },
+    { id: 'strength', label: 'Fuerza' },
+  ] as const;
+
   return (
     <AppLayout>
-      <div className="space-y-6 pb-20">
-        {/* Header with period filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Analytics</h1>
-            <p className="text-muted-foreground text-sm">Seguimiento de tu progreso</p>
+      <div style={{ background: T.bg, minHeight: '100vh', paddingBottom: 100 }}>
+        {/* Header */}
+        <div style={{ padding: '28px 20px 0' }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, color: T.inkFaint,
+            textTransform: 'uppercase', letterSpacing: '0.24em', marginBottom: 10 }}>
+            Tendencias
           </div>
-          
-          {/* Period Filter Tabs - like the reference */}
-          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
-            {(['7d', '4w', '12w', '1y'] as TimePeriod[]).map((period) => (
-              <Button
-                key={period}
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  'px-3 py-1.5 text-xs font-medium transition-all',
-                  timePeriod === period 
-                    ? 'bg-background text-foreground shadow-sm' 
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-                onClick={() => setTimePeriod(period)}
-              >
-                {period}
-              </Button>
-            ))}
+          <div style={{ fontFamily: T.sans, fontSize: 42, color: T.ink, lineHeight: 0.95,
+            fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
+            Análisis
           </div>
         </div>
 
-        {/* Main Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <TabsList className="grid w-full max-w-md grid-cols-3 bg-muted/50">
-            <TabsTrigger value="overview" className="text-xs sm:text-sm">
-              <TrendingUp className="h-4 w-4 mr-1.5" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="climb" className="text-xs sm:text-sm">
-              <Mountain className="h-4 w-4 mr-1.5" />
-              Climb
-            </TabsTrigger>
-            <TabsTrigger value="running" className="text-xs sm:text-sm">
-              <Footprints className="h-4 w-4 mr-1.5" />
-              Running
-            </TabsTrigger>
-          </TabsList>
+        {/* Period selector */}
+        <div style={{ display: 'flex', borderTop: `1px solid ${T.rule}`,
+          borderBottom: `1px solid ${T.rule}`, marginTop: 20 }}>
+          {(['7d', '4w', '12w', '1y'] as TimePeriod[]).map(p => (
+            <button key={p} onClick={() => setTimePeriod(p)} style={{
+              flex: 1, padding: '12px 0', background: 'none', border: 'none',
+              borderRight: p !== '1y' ? `1px solid ${T.rule}` : 'none',
+              fontFamily: T.mono, fontSize: 11, cursor: 'pointer',
+              color: timePeriod === p ? T.ink : T.inkFaint,
+              fontWeight: timePeriod === p ? 600 : 400,
+              textTransform: 'uppercase', letterSpacing: '0.12em',
+              borderBottom: timePeriod === p ? '2px solid #FAFAF9' : '2px solid transparent',
+            }}>{p}</button>
+          ))}
+        </div>
 
-          {/* Overview Tab - New design */}
-          <TabsContent value="overview" className="mt-6 space-y-6">
-            {isLoading ? (
-              <div className="animate-pulse space-y-4">
-                <div className="h-64 bg-muted rounded-lg" />
-                <div className="h-48 bg-muted rounded-lg" />
+        {/* Quick stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)',
+          borderBottom: `1px solid ${T.rule}` }}>
+          {[
+            { value: stats.sessions, label: 'Ses.' },
+            { value: `${stats.hours}h`, label: 'Tiempo' },
+            { value: stats.climbs, label: 'Vías' },
+            { value: `${stats.km}`, label: 'km' },
+            { value: stats.avgRpe, label: 'RPE' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              padding: '14px 12px',
+              borderRight: i < 4 ? `1px solid ${T.rule}` : 'none',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontFamily: T.sans, fontSize: 22, color: T.ink,
+                fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                {s.value}
               </div>
-            ) : (
-              <>
-                {/* Quick Stats Grid */}
-                <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                  <Card className="card-elevated">
-                    <CardContent className="p-2 sm:p-3 text-center">
-                      <div className="text-lg sm:text-2xl font-bold text-primary">{stats.sessions}</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">Sesiones</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="card-elevated">
-                    <CardContent className="p-2 sm:p-3 text-center">
-                      <div className="text-lg sm:text-2xl font-bold">{stats.hours}h</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">Tiempo</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="card-elevated">
-                    <CardContent className="p-2 sm:p-3 text-center">
-                      <div className="text-lg sm:text-2xl font-bold text-accent">{stats.climbs}</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">Climbs</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="card-elevated">
-                    <CardContent className="p-2 sm:p-3 text-center">
-                      <div className="text-lg sm:text-2xl font-bold text-cyan-500">{stats.km}</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">Km</div>
-                    </CardContent>
-                  </Card>
-                  <Card className="card-elevated">
-                    <CardContent className="p-2 sm:p-3 text-center">
-                      <div className="text-lg sm:text-2xl font-bold">{stats.avgRpe}</div>
-                      <div className="text-[10px] sm:text-xs text-muted-foreground">RPE</div>
-                    </CardContent>
-                  </Card>
-                </div>
+              <div style={{ fontFamily: T.sans, fontSize: 9, color: T.inkFaint,
+                textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 5 }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
 
-                {/* Activity Donut Chart */}
-                <ActivityDonutChart sessions={sessions} periodDays={periodDays} />
+        {/* Tab bar — scrollable for 5 tabs */}
+        <div style={{ display: 'flex', borderBottom: `1px solid ${T.rule}`,
+          overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              flex: '0 0 auto', padding: '12px 18px', background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: T.sans, fontSize: 11,
+              color: activeTab === t.id ? T.ink : T.inkFaint,
+              textTransform: 'uppercase', letterSpacing: '0.16em',
+              fontWeight: activeTab === t.id ? 600 : 500,
+              position: 'relative', whiteSpace: 'nowrap',
+            }}>
+              {t.label}
+              {activeTab === t.id && (
+                <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0,
+                  height: 1, background: T.ink }} />
+              )}
+            </button>
+          ))}
+        </div>
 
-                {/* Weekly Stacked Bar Chart */}
+        {/* Tab content */}
+        <div style={{ padding: '0 0 24px' }}>
+          {isLoading ? (
+            <div style={{ padding: '40px 20px', textAlign: 'center',
+              fontFamily: T.sans, fontSize: 13, color: T.inkFaint }}>Cargando…</div>
+          ) : activeTab === 'overview' ? (
+            <div style={{ padding: '20px 20px 0' }}>
+              <ActivityDonutChart sessions={sessions} periodDays={periodDays} />
+              <div style={{ marginTop: 24 }}>
                 <WeeklyStackedBarChart sessions={sessions} periodDays={periodDays} />
-
-                {/* Training Assistant */}
-                <TrainingAssistant 
-                  sessions={sessions}
-                  weeklyKmGoal={weeklyKmGoal}
-                  activeTab="climb"
-                  modality={modality}
-                />
-
-                {/* Monthly Comparison */}
+              </div>
+              <div style={{ marginTop: 24 }}>
+                <TrainingAssistant sessions={sessions} weeklyKmGoal={weeklyKmGoal} activeTab="climb" modality={modality} />
+              </div>
+              <div style={{ marginTop: 24 }}>
                 <MonthlyComparison sessions={sessions} weeklyKmGoal={weeklyKmGoal} />
-              </>
-            )}
-          </TabsContent>
-
-          {/* Climb Tab */}
-          <TabsContent value="climb" className="mt-6">
-            {isLoading ? (
-              <div className="animate-pulse space-y-4">
-                <div className="h-32 bg-muted rounded-lg" />
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="h-64 bg-muted rounded-lg" />
-                  <div className="h-64 bg-muted rounded-lg" />
-                </div>
               </div>
-            ) : (
+            </div>
+          ) : activeTab === 'climb' ? (
+            <div style={{ padding: '20px 20px 0' }}>
               <ClimbDashboard sessions={sessions} />
-            )}
-          </TabsContent>
-
-          {/* Running Tab */}
-          <TabsContent value="running" className="mt-6">
-            {isLoading ? (
-              <div className="animate-pulse space-y-4">
-                <div className="h-32 bg-muted rounded-lg" />
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="h-64 bg-muted rounded-lg" />
-                  <div className="h-64 bg-muted rounded-lg" />
-                </div>
-              </div>
-            ) : (
+            </div>
+          ) : activeTab === 'running' ? (
+            <div style={{ padding: '20px 20px 0' }}>
               <RunningDashboard sessions={sessions} weeklyKmGoal={weeklyKmGoal} />
-            )}
-          </TabsContent>
-        </Tabs>
+            </div>
+          ) : activeTab === 'bike' ? (
+            <div style={{ padding: '20px 20px 0' }}>
+              <BikeDashboard sessions={sessions} />
+            </div>
+          ) : (
+            <div style={{ padding: '20px 20px 0' }}>
+              <StrengthDashboard sessions={sessions} />
+            </div>
+          )}
+        </div>
       </div>
     </AppLayout>
   );
