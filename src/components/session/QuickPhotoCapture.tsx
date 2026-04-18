@@ -1,11 +1,8 @@
 import { useState, useRef } from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Camera, X, Check, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Camera, X } from 'lucide-react';
 
 interface QuickPhotoCaptureProps {
   // We'll store photos temporarily until session is created
@@ -127,12 +124,20 @@ export default function QuickPhotoCapture({
   );
 }
 
+interface SessionPhotoUploadResult {
+  failedCount: number;
+  uploadedCount: number;
+}
+
 // Helper to upload photos after session is created
 export async function uploadSessionPhotos(
   photos: File[],
   sessionId: string,
   userId: string
-): Promise<void> {
+): Promise<SessionPhotoUploadResult> {
+  let uploadedCount = 0;
+  let failedCount = 0;
+
   for (const file of photos) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}/${sessionId}/${Date.now()}-${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
@@ -146,6 +151,7 @@ export async function uploadSessionPhotos(
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
+      failedCount++;
       continue;
     }
 
@@ -153,11 +159,22 @@ export async function uploadSessionPhotos(
       .from('climbing-media')
       .getPublicUrl(uploadData.path);
 
-    await supabase.from('attachments').insert({
+    const { error: attachmentError } = await supabase.from('attachments').insert({
       user_id: userId,
       session_id: sessionId,
       file_url: urlData.publicUrl,
       type: 'photo',
     });
+
+    if (attachmentError) {
+      failedCount++;
+      console.error('Attachment insert error:', attachmentError);
+      await supabase.storage.from('climbing-media').remove([uploadData.path]);
+      continue;
+    }
+
+    uploadedCount++;
   }
+
+  return { failedCount, uploadedCount };
 }

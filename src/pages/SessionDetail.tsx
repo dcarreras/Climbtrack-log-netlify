@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -52,6 +53,7 @@ import EditClimbDialog from '@/components/climbs/EditClimbDialog';
 import MediaUpload from '@/components/media/MediaUpload';
 import MediaGallery from '@/components/media/MediaGallery';
 import EditSessionDialog from '@/components/session/EditSessionDialog';
+import { removeAttachmentFiles } from '@/lib/storage';
 
 // Helper to get attachments for a specific climb
 const getClimbAttachments = (attachments: any[], climbId: string) => {
@@ -106,6 +108,8 @@ export default function SessionDetail() {
 
   const deleteSession = useMutation({
     mutationFn: async () => {
+      const attachments = session?.attachments || [];
+      await removeAttachmentFiles(attachments);
       const { error } = await supabase.from('sessions').delete().eq('id', id!);
       if (error) throw error;
     },
@@ -121,6 +125,8 @@ export default function SessionDetail() {
 
   const deleteClimb = useMutation({
     mutationFn: async (climbId: string) => {
+      const climbAttachments = getClimbAttachments(session?.attachments || [], climbId);
+      await removeAttachmentFiles(climbAttachments);
       const { error } = await supabase.from('climbs').delete().eq('id', climbId);
       if (error) throw error;
     },
@@ -379,6 +385,9 @@ export default function SessionDetail() {
               <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Subir Media</DialogTitle>
+                  <DialogDescription>
+                    Añade fotos o vídeos a esta sesión para conservar referencias y progresos.
+                  </DialogDescription>
                 </DialogHeader>
                 <MediaUpload 
                   sessionId={session.id} 
@@ -425,6 +434,9 @@ export default function SessionDetail() {
               <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add Climb</DialogTitle>
+                  <DialogDescription>
+                    Registra un nuevo bloque o vía dentro de esta sesión.
+                  </DialogDescription>
                 </DialogHeader>
                 <AddClimbForm 
                   sessionId={session.id} 

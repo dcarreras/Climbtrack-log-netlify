@@ -52,6 +52,8 @@ import {
 import { cn } from '@/lib/utils';
 import EditPlannedSessionDialog from '@/components/planning/EditPlannedSessionDialog';
 import TrainingLoadACWR from '@/components/dashboard/TrainingLoadACWR';
+import TemplatePicker from '@/components/planning/TemplatePicker';
+import TemplateBuilder, { type TemplateBlock } from '@/components/planning/TemplateBuilder';
 import {
   encodePlannedSessionNotes,
   getPlannedSessionMeta,
@@ -174,6 +176,8 @@ export default function Planning() {
     distance_km: '',
     time_min: '',
   });
+  const [sessionBlocks, setSessionBlocks] = useState<TemplateBlock[]>([]);
+  const [templateTab, setTemplateTab] = useState<'blocks' | 'notes'>('blocks');
 
   // Fetch planned sessions
   const { data: plannedSessions = [] } = useQuery({
@@ -248,7 +252,9 @@ export default function Planning() {
         date: format(selectedDate, 'yyyy-MM-dd'),
         session_type: selectedOption.sessionType,
         notes: encodePlannedSessionNotes(newSession.notes, newSession.focus),
-        trainer_notes: newSession.trainer_notes || null,
+        trainer_notes: sessionBlocks.length > 0
+          ? JSON.stringify(sessionBlocks)
+          : newSession.trainer_notes || null,
         gym_id: selectedOption.showGym ? newSession.gym_id || null : null,
         distance_km:
           selectedOption.showDistance && newSession.distance_km
@@ -271,6 +277,8 @@ export default function Planning() {
         distance_km: '',
         time_min: '',
       });
+      setSessionBlocks([]);
+      setTemplateTab('blocks');
     },
     onError: (error) => {
       toast.error('Error: ' + error.message);
@@ -880,15 +888,73 @@ export default function Planning() {
                     </div>
                   )}
                   
-                  <div className="space-y-2">
-                    <Label>Plan de la sesión</Label>
-                    <Textarea
-                      value={newSession.trainer_notes}
-                      onChange={(e) => setNewSession({ ...newSession, trainer_notes: e.target.value })}
-                      placeholder="Objetivo, bloques, series, repeticiones, ritmo o descansos..."
-                      rows={3}
-                    />
-                  </div>
+                  {/* Plan de la sesión — bloques o texto libre */}
+                  {(newSession.focus === 'rope' || newSession.focus === 'boulder' || newSession.focus === 'hybrid') ? (
+                    <div className="space-y-2">
+                      {/* Tab bar */}
+                      <div style={{ display: 'flex', borderBottom: '1px solid rgba(250,250,249,0.09)' }}>
+                        {(['blocks', 'notes'] as const).map(tab => (
+                          <button key={tab} onClick={() => setTemplateTab(tab)} style={{
+                            flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+                            padding: '8px 0', fontFamily: "'Urbanist', sans-serif", fontSize: 10,
+                            textTransform: 'uppercase', letterSpacing: '0.16em',
+                            color: templateTab === tab ? '#FAFAF9' : 'rgba(250,250,249,0.38)',
+                            fontWeight: templateTab === tab ? 600 : 500,
+                            borderBottom: templateTab === tab ? '1px solid #FAFAF9' : '1px solid transparent',
+                            marginBottom: -1,
+                          }}>
+                            {tab === 'blocks' ? 'Constructor' : 'Texto libre'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {templateTab === 'blocks' ? (
+                        <div className="space-y-3">
+                          <TemplatePicker
+                            sessionType={planningOptions[newSession.focus].sessionType}
+                            onSelect={(blocks) => setSessionBlocks(blocks)}
+                          />
+                          {sessionBlocks.length > 0 && (
+                            <div>
+                              <div style={{
+                                fontFamily: "'Urbanist', sans-serif", fontSize: 10,
+                                color: 'rgba(250,250,249,0.5)', textTransform: 'uppercase',
+                                letterSpacing: '0.14em', marginBottom: 8,
+                              }}>Editar bloques de esta sesión</div>
+                              <TemplateBuilder blocks={sessionBlocks} onChange={setSessionBlocks} />
+                            </div>
+                          )}
+                          {sessionBlocks.length === 0 && (
+                            <div>
+                              <div style={{
+                                fontFamily: "'Urbanist', sans-serif", fontSize: 10,
+                                color: 'rgba(250,250,249,0.5)', textTransform: 'uppercase',
+                                letterSpacing: '0.14em', marginBottom: 8,
+                              }}>O crea bloques desde cero</div>
+                              <TemplateBuilder blocks={sessionBlocks} onChange={setSessionBlocks} />
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <Textarea
+                          value={newSession.trainer_notes}
+                          onChange={(e) => setNewSession({ ...newSession, trainer_notes: e.target.value })}
+                          placeholder="Objetivo, bloques, series, repeticiones, ritmo o descansos..."
+                          rows={4}
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Label>Plan de la sesión</Label>
+                      <Textarea
+                        value={newSession.trainer_notes}
+                        onChange={(e) => setNewSession({ ...newSession, trainer_notes: e.target.value })}
+                        placeholder="Objetivo, bloques, series, repeticiones, ritmo o descansos..."
+                        rows={3}
+                      />
+                    </div>
+                  )}
                   
                   <div className="space-y-2">
                     <Label>Mis notas</Label>
@@ -951,15 +1017,54 @@ export default function Planning() {
                             )}
                           </div>
 
-                          {session.trainer_notes && (
-                            <div className="mb-2">
-                              <p className="text-xs text-muted-foreground font-medium mb-1">
-                                <Dumbbell className="h-3 w-3 inline mr-1" />
-                                Plan:
-                              </p>
-                              <p className="text-sm">{session.trainer_notes}</p>
-                            </div>
-                          )}
+                          {session.trainer_notes && (() => {
+                            let blocks: TemplateBlock[] | null = null;
+                            try { blocks = JSON.parse(session.trainer_notes); } catch {}
+                            if (blocks && Array.isArray(blocks) && blocks.length > 0) {
+                              const BCOLOR: Record<string, string> = {
+                                warmup: 'rgba(251,191,36,0.2)',
+                                main: 'rgba(226,58,31,0.2)',
+                                cooldown: 'rgba(99,102,241,0.2)',
+                              };
+                              const BLABEL: Record<string, string> = {
+                                warmup: 'Cal.', main: 'Prin.', cooldown: 'Vta.',
+                              };
+                              return (
+                                <div className="mb-2 space-y-1">
+                                  {blocks.map((b, idx) => (
+                                    <div key={idx} style={{
+                                      display: 'flex', alignItems: 'center', gap: 6,
+                                      padding: '4px 8px', background: BCOLOR[b.type] || 'rgba(250,250,249,0.06)',
+                                    }}>
+                                      <span style={{
+                                        fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                                        color: 'rgba(250,250,249,0.4)', textTransform: 'uppercase',
+                                        letterSpacing: '0.1em', flexShrink: 0, minWidth: 28,
+                                      }}>{BLABEL[b.type]}</span>
+                                      <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, color: 'rgba(250,250,249,0.85)', flex: 1 }}>
+                                        {b.label || ''}
+                                        {b.optional && <span style={{ color: 'rgba(250,250,249,0.35)', fontSize: 10 }}> (opc.)</span>}
+                                      </span>
+                                      {(b.sets || b.grade) && (
+                                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'rgba(250,250,249,0.6)', flexShrink: 0 }}>
+                                          {b.sets ? `${b.sets}×` : ''}{b.grade ? ` ${b.grade}` : ''}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            }
+                            return (
+                              <div className="mb-2">
+                                <p className="text-xs text-muted-foreground font-medium mb-1">
+                                  <Dumbbell className="h-3 w-3 inline mr-1" />
+                                  Plan:
+                                </p>
+                                <p className="text-sm">{session.trainer_notes}</p>
+                              </div>
+                            );
+                          })()}
 
                           {(session.distance_km || session.time_min || session.gyms?.name) && (
                             <div className="flex flex-wrap gap-3 mb-2 text-sm">
@@ -1011,14 +1116,20 @@ export default function Planning() {
                           >
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => deleteMutation.mutate(session.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {!session.completed && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                if (confirm('¿Eliminar esta sesión planificada?')) {
+                                  deleteMutation.mutate(session.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>

@@ -27,7 +27,7 @@ export default function Profile() {
   const { user, signOut } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: profile, isLoading } = useQuery({
+  const { data: profile } = useQuery({
     queryKey: ['profile', user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -101,8 +101,9 @@ export default function Profile() {
       setAvatarUrl(newAvatarUrl);
       queryClient.invalidateQueries({ queryKey: ['profile'] });
       toast.success('Foto de perfil actualizada');
-    } catch (error: any) {
-      toast.error('Error al subir la foto: ' + error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Error desconocido';
+      toast.error('Error al subir la foto: ' + message);
     } finally {
       setUploadingAvatar(false);
     }
@@ -124,10 +125,10 @@ export default function Profile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profile'] });
-      toast.success('Profile updated!');
+      toast.success('Ajustes guardados');
     },
     onError: (error) => {
-      toast.error('Failed to update profile: ' + error.message);
+      toast.error('No se pudieron guardar los ajustes: ' + error.message);
     },
   });
 
@@ -140,8 +141,10 @@ export default function Profile() {
     <AppLayout>
       <div className="max-w-2xl mx-auto space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Profile</h1>
-          <p className="text-muted-foreground">Manage your account settings</p>
+          <h1 className="text-3xl font-bold">Ajustes</h1>
+          <p className="text-muted-foreground">
+            Configuración personal, objetivo de running y conexión con Strava.
+          </p>
         </div>
 
         <Card className="card-elevated">
@@ -203,12 +206,12 @@ export default function Profile() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5 text-primary" />
-              Preferences
+              Preferencias
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="gradeSystem">Default Grade System</Label>
+              <Label htmlFor="gradeSystem">Sistema de grados por defecto</Label>
               <Select value={gradeSystem} onValueChange={(v) => setGradeSystem(v as GradeSystem)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -223,14 +226,14 @@ export default function Profile() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="units">Weight Units</Label>
+              <Label htmlFor="units">Unidades de peso</Label>
               <Select value={units} onValueChange={setUnits}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                  <SelectItem value="lb">Pounds (lb)</SelectItem>
+                  <SelectItem value="kg">Kilogramos (kg)</SelectItem>
+                  <SelectItem value="lb">Libras (lb)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -260,7 +263,7 @@ export default function Profile() {
                 <span className="text-muted-foreground">km / semana</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Este objetivo se usará en el dashboard de Running para mostrar tu progreso semanal.
+                Se usa en el resumen conjunto para controlar volumen y posibles interferencias.
               </p>
             </div>
           </CardContent>
@@ -275,13 +278,13 @@ export default function Profile() {
             disabled={updateProfile.isPending}
           >
             <Save className="mr-2 h-4 w-4" />
-            {updateProfile.isPending ? 'Saving...' : 'Save Changes'}
+            {updateProfile.isPending ? 'Guardando...' : 'Guardar cambios'}
           </Button>
         </div>
 
         <Card className="card-elevated border-destructive/20">
           <CardHeader>
-            <CardTitle className="text-destructive">Danger Zone</CardTitle>
+            <CardTitle className="text-destructive">Sesión</CardTitle>
           </CardHeader>
           <CardContent>
             <Button 
@@ -290,7 +293,7 @@ export default function Profile() {
                 await signOut();
               }}
             >
-              Sign Out
+              Cerrar sesión
             </Button>
           </CardContent>
         </Card>

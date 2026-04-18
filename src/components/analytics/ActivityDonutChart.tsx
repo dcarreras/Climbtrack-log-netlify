@@ -14,6 +14,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   rope: 'hsl(280, 70%, 50%)',        // Purple
   hybrid: 'hsl(320, 70%, 55%)',      // Pink
   running: 'hsl(199, 89%, 48%)',     // Cyan/Blue
+  bike: 'hsl(201, 96%, 44%)',        // Sky
   strength: 'hsl(142, 76%, 45%)',    // Green
   hangboard: 'hsl(45, 93%, 47%)',    // Yellow
   flexibility: 'hsl(173, 80%, 45%)', // Teal
@@ -25,6 +26,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   rope: 'Cuerda',
   hybrid: 'Híbrido',
   running: 'Running',
+  bike: 'Bici',
   strength: 'Fuerza',
   hangboard: 'Hangboard',
   flexibility: 'Flexibilidad',

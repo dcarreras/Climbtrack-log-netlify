@@ -16,6 +16,7 @@ const ACTIVITY_COLORS: Record<string, string> = {
   rope: 'hsl(280, 70%, 50%)',
   hybrid: 'hsl(320, 70%, 55%)',
   running: 'hsl(199, 89%, 48%)',
+  bike: 'hsl(201, 96%, 44%)',
   strength: 'hsl(142, 76%, 45%)',
   hangboard: 'hsl(45, 93%, 47%)',
   flexibility: 'hsl(173, 80%, 45%)',
@@ -27,6 +28,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
   rope: 'Cuerda',
   hybrid: 'Híbrido',
   running: 'Running',
+  bike: 'Bici',
   strength: 'Fuerza',
   hangboard: 'Hangboard',
   flexibility: 'Flexibilidad',
@@ -34,6 +36,18 @@ const ACTIVITY_LABELS: Record<string, string> = {
 };
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+interface TooltipPayloadEntry {
+  color?: string;
+  dataKey?: string;
+  value?: number;
+}
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: TooltipPayloadEntry[];
+  label?: string;
+}
 
 export default function WeeklyStackedBarChart({ sessions, periodDays }: WeeklyStackedBarChartProps) {
   const data = useMemo(() => {
@@ -115,12 +129,12 @@ export default function WeeklyStackedBarChart({ sessions, periodDays }: WeeklySt
     });
   }, [sessions]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: CustomTooltipProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="font-semibold mb-2">{label}</p>
-          {payload.filter((p: any) => p.value > 0).map((entry: any, index: number) => (
+          {payload.filter((p) => (p.value || 0) > 0).map((entry, index) => (
             <div key={index} className="flex items-center gap-2 text-sm">
               <div
                 className="w-2 h-2 rounded-full"

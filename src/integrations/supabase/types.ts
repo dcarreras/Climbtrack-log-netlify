@@ -193,6 +193,36 @@ export type Database = {
         }
         Relationships: []
       }
+      session_templates: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          session_type: Database["public"]["Enums"]["session_type"]
+          blocks: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          session_type: Database["public"]["Enums"]["session_type"]
+          blocks?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          session_type?: Database["public"]["Enums"]["session_type"]
+          blocks?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       planned_sessions: {
         Row: {
           completed: boolean
@@ -591,7 +621,7 @@ export type Database = {
       discipline: "boulder" | "route"
       grade_system: "font" | "v-grade" | "french" | "yds"
       hold_type: "jugs" | "crimps" | "slopers" | "pinches" | "mixed"
-      session_type: "boulder" | "rope" | "hybrid" | "training" | "running"
+      session_type: "boulder" | "rope" | "hybrid" | "training" | "running" | "bike"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -735,7 +765,7 @@ export const Constants = {
       discipline: ["boulder", "route"],
       grade_system: ["font", "v-grade", "french", "yds"],
       hold_type: ["jugs", "crimps", "slopers", "pinches", "mixed"],
-      session_type: ["boulder", "rope", "hybrid", "training", "running"],
+      session_type: ["boulder", "rope", "hybrid", "training", "running", "bike"],
     },
   },
 } as const

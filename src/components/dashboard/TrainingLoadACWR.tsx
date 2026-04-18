@@ -58,10 +58,16 @@ function calculateTRIMP(session: Session): number {
   const duration = session.duration_min || 60; // default 60 min
   const rpe = session.rpe_1_10 || 5; // default moderate
   
-  // Add running distance as load factor (1 km = ~10 load units)
-  const runningLoad = (session.distance_km || 0) * 10;
+  // Distance adds extra load for endurance sessions, lower for bike than running.
+  const distance = session.distance_km || 0;
+  const enduranceLoad =
+    session.session_type === 'running'
+      ? distance * 10
+      : session.session_type === 'bike'
+        ? distance * 3
+        : 0;
   
-  return (duration * rpe) + runningLoad;
+  return (duration * rpe) + enduranceLoad;
 }
 
 function getLoadStatus(acwr: number): LoadMetrics['status'] {
@@ -304,7 +310,7 @@ export default function TrainingLoadACWR({ sessions }: TrainingLoadACWRProps) {
               <h4 className="font-semibold text-sm">¿Cómo se calcula el ACWR?</h4>
               <div className="grid gap-2 text-sm">
                 <p>
-                  <strong className="text-primary">TRIMP</strong> = Duración (min) × RPE + (km running × 10)
+                  <strong className="text-primary">TRIMP</strong> = Duración × RPE + (km running × 10) + (km bici × 3)
                 </p>
                 <p>
                   <strong className="text-primary">Carga Aguda</strong> = Suma del TRIMP de los últimos 7 días

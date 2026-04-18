@@ -125,7 +125,7 @@ export default function MediaUpload({ sessionId, climbId, onSuccess }: MediaUplo
 
       // Save to attachments table
       const attachmentType = selectedFile.type.startsWith('video/') ? 'video' : 'photo';
-      
+
       const { error: dbError } = await supabase.from('attachments').insert({
         user_id: user.id,
         session_id: sessionId,
@@ -134,7 +134,10 @@ export default function MediaUpload({ sessionId, climbId, onSuccess }: MediaUplo
         type: attachmentType,
       });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        await supabase.storage.from('climbing-media').remove([uploadData.path]);
+        throw dbError;
+      }
 
       return urlData.publicUrl;
     },

@@ -1,7 +1,9 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+
+const DRAFT_KEY = 'climbtracker.sessionDraft';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -77,6 +79,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     await signOut();
@@ -87,6 +90,28 @@ export default function AppLayout({ children }: AppLayoutProps) {
     location.pathname === href ||
     (href === '/sessions' && location.pathname.startsWith('/sessions') && location.pathname !== '/sessions/new') ||
     (href === '/analytics' && location.pathname === '/analytics');
+
+  const hasDraft = () => !!localStorage.getItem(DRAFT_KEY);
+
+  const handleNavClick = (href: string, e: React.MouseEvent) => {
+    if (href === '/sessions/new') return;
+    if (location.pathname === '/sessions/new' && hasDraft()) {
+      e.preventDefault();
+      setPendingNav(href);
+    }
+  };
+
+  const handlePause = () => {
+    setPendingNav(null);
+    navigate('/home');
+  };
+
+  const handleDiscard = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    const dest = pendingNav!;
+    setPendingNav(null);
+    navigate(dest);
+  };
 
   return (
     <div className="min-h-screen bg-background" style={{ fontFamily: "'Urbanist', system-ui, sans-serif" }}>
@@ -124,6 +149,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Link
                 key={item.href}
                 to={item.href}
+                onClick={(e) => handleNavClick(item.href, e)}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -248,6 +274,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Link
               key={tab.href}
               to={tab.href}
+              onClick={(e) => handleNavClick(tab.href, e)}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -287,6 +314,63 @@ export default function AppLayout({ children }: AppLayoutProps) {
           );
         })}
       </nav>
+
+      {/* Session guard dialog */}
+      {pendingNav && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 200,
+          background: 'rgba(0,0,0,0.75)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '0 24px',
+        }}>
+          <div style={{
+            background: '#131313',
+            border: '1px solid rgba(250,250,249,0.12)',
+            padding: 28, maxWidth: 360, width: '100%',
+          }}>
+            <div style={{
+              fontFamily: "'Urbanist', sans-serif", fontSize: 17,
+              fontWeight: 700, color: '#FAFAF9', letterSpacing: '-0.01em',
+              textTransform: 'uppercase', marginBottom: 10,
+            }}>
+              Sesión en curso
+            </div>
+            <div style={{
+              fontFamily: "'Urbanist', sans-serif", fontSize: 13,
+              color: 'rgba(250,250,249,0.6)', lineHeight: 1.5, marginBottom: 24,
+            }}>
+              Tienes una sesión sin terminar. ¿Qué quieres hacer?
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <button onClick={handlePause} style={{
+                background: '#FAFAF9', color: '#050505', border: 'none',
+                padding: '12px', cursor: 'pointer',
+                fontFamily: "'Urbanist', sans-serif", fontSize: 11,
+                fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
+              }}>
+                Pausar y retomar después
+              </button>
+              <button onClick={handleDiscard} style={{
+                background: 'transparent', color: '#E23A1F',
+                border: '1px solid rgba(226,58,31,0.4)',
+                padding: '12px', cursor: 'pointer',
+                fontFamily: "'Urbanist', sans-serif", fontSize: 11,
+                fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
+              }}>
+                Borrar sesión y salir
+              </button>
+              <button onClick={() => setPendingNav(null)} style={{
+                background: 'transparent', color: 'rgba(250,250,249,0.38)',
+                border: 'none', padding: '10px', cursor: 'pointer',
+                fontFamily: "'Urbanist', sans-serif", fontSize: 11,
+                letterSpacing: '0.12em', textTransform: 'uppercase',
+              }}>
+                Seguir registrando
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

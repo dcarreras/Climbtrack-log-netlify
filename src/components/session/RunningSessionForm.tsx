@@ -13,17 +13,70 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Footprints, Calendar as CalendarIcon, Clock, Mountain, Flame, Save, ArrowLeft, Check } from 'lucide-react';
+import {
+  Footprints,
+  Calendar as CalendarIcon,
+  Clock,
+  Mountain,
+  Flame,
+  Save,
+  ArrowLeft,
+  Check,
+  Bike,
+  Gauge,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RunningSessionFormProps {
+  activityType?: 'running' | 'bike';
   onBack?: () => void;
+  plannedSessionId?: string | null;
 }
 
-export default function RunningSessionForm({ onBack }: RunningSessionFormProps) {
+const activityConfig = {
+  running: {
+    title: 'Nueva Sesión de Running',
+    subtitle: 'Registra tu entrenamiento de carrera',
+    sessionType: 'running' as const,
+    icon: Footprints,
+    accentClass: 'text-cyan-500',
+    distanceIcon: Footprints,
+    distanceLabel: 'Distancia (km)',
+    derivedLabel: 'Ritmo medio',
+    formatDerivedMetric: (distance: number, duration: number) => {
+      const pace = duration / distance;
+      const paceMin = Math.floor(pace);
+      const paceSec = Math.round((pace - paceMin) * 60);
+      return `${paceMin}:${paceSec.toString().padStart(2, '0')} /km`;
+    },
+  },
+  bike: {
+    title: 'Nueva Sesión de Bici',
+    subtitle: 'Registra tu salida o sesión de rodillo',
+    sessionType: 'bike' as const,
+    icon: Bike,
+    accentClass: 'text-sky-500',
+    distanceIcon: Bike,
+    distanceLabel: 'Distancia (km)',
+    derivedLabel: 'Velocidad media',
+    formatDerivedMetric: (distance: number, duration: number) => {
+      const speed = duration > 0 ? distance / (duration / 60) : 0;
+      return `${speed.toFixed(1)} km/h`;
+    },
+  },
+};
+
+export default function RunningSessionForm({
+  activityType = 'running',
+  onBack,
+  plannedSessionId,
+}: RunningSessionFormProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const config = activityConfig[activityType];
+  const ActivityIcon = config.icon;
+  const DistanceIcon = config.distanceIcon;
 
   const [date, setDate] = useState<Date>(new Date());
   const [distanceKm, setDistanceKm] = useState('');
@@ -32,18 +85,10 @@ export default function RunningSessionForm({ onBack }: RunningSessionFormProps) 
   const [rpe, setRpe] = useState(5);
   const [notes, setNotes] = useState('');
 
-  // Calculate pace
-  const pace = distanceKm && durationMin 
-    ? (parseFloat(durationMin) / parseFloat(distanceKm)).toFixed(2)
-    : null;
-
-  const formatPace = (paceMinPerKm: string | null) => {
-    if (!paceMinPerKm) return '-';
-    const totalMin = parseFloat(paceMinPerKm);
-    const min = Math.floor(totalMin);
-    const sec = Math.round((totalMin - min) * 60);
-    return `${min}:${sec.toString().padStart(2, '0')} /km`;
-  };
+  const derivedMetric =
+    distanceKm && durationMin
+      ? config.formatDerivedMetric(parseFloat(distanceKm), parseFloat(durationMin))
+      : null;
 
   const createSession = useMutation({
     mutationFn: async () => {
@@ -52,7 +97,7 @@ export default function RunningSessionForm({ onBack }: RunningSessionFormProps) 
         .insert({
           user_id: user!.id,
           date: format(date, 'yyyy-MM-dd'),
-          session_type: 'running',
+          session_type: config.sessionType,
           duration_min: durationMin ? parseInt(durationMin) : null,
           distance_km: distanceKm ? parseFloat(distanceKm) : null,
           elevation_gain_m: elevationGainM ? parseFloat(elevationGainM) : null,
@@ -63,11 +108,26 @@ export default function RunningSessionForm({ onBack }: RunningSessionFormProps) 
         .single();
 
       if (error) throw error;
+
+      if (plannedSessionId) {
+        const { error: plannedError } = await supabase
+          .from('planned_sessions')
+          .update({
+            completed: true,
+            completed_session_id: session.id,
+          })
+          .eq('id', plannedSessionId);
+
+        if (plannedError) throw plannedError;
+      }
+
       return session;
     },
     onSuccess: (session) => {
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
-      toast.success('¡Sesión de running guardada!', {
+      queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-sessions-pending'] });
+      toast.success(`¡Sesión de ${activityType === 'bike' ? 'bici' : 'running'} guardada!`, {
         icon: <Check className="h-4 w-4 text-green-500" />,
         description: `${distanceKm} km en ${durationMin} min`,
         duration: 4000,
@@ -98,10 +158,10 @@ export default function RunningSessionForm({ onBack }: RunningSessionFormProps) 
         )}
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Footprints className="h-6 w-6 text-cyan-500" />
-            Nueva Sesión de Running
+            <ActivityIcon className={cn('h-6 w-6', config.accentClass)} />
+            {config.title}
           </h2>
-          <p className="text-muted-foreground">Registra tu entrenamiento</p>
+          <p className="text-muted-foreground">{config.subtitle}</p>
         </div>
       </div>
 
@@ -147,8 +207,8 @@ export default function RunningSessionForm({ onBack }: RunningSessionFormProps) 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="distance" className="flex items-center gap-2">
-                  <Footprints className="h-4 w-4" />
-                  Distancia (km)
+                  <DistanceIcon className="h-4 w-4" />
+                  {config.distanceLabel}
                 </Label>
                 <Input
                   id="distance"
@@ -180,10 +240,13 @@ export default function RunningSessionForm({ onBack }: RunningSessionFormProps) 
             </div>
 
             {/* Pace display */}
-            {pace && (
+            {derivedMetric && (
               <div className="bg-muted/50 rounded-lg p-4 text-center">
-                <div className="text-sm text-muted-foreground">Ritmo medio</div>
-                <div className="text-2xl font-bold text-cyan-500">{formatPace(pace)}</div>
+                <div className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                  {activityType === 'bike' ? <Gauge className="h-4 w-4" /> : <Footprints className="h-4 w-4" />}
+                  {config.derivedLabel}
+                </div>
+                <div className={cn('text-2xl font-bold', config.accentClass)}>{derivedMetric}</div>
               </div>
             )}
 

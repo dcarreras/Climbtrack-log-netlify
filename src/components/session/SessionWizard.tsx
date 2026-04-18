@@ -287,22 +287,32 @@ export default function SessionWizard() {
       }
 
       // Upload photos if any
+      let photoUploadResult = { failedCount: 0, uploadedCount: 0 };
       if (photos.length > 0) {
-        await uploadSessionPhotos(photos, session.id, user!.id);
+        photoUploadResult = await uploadSessionPhotos(photos, session.id, user!.id);
       }
 
-      return session;
+      return { photoUploadResult, session };
     },
-    onSuccess: (session) => {
+    onSuccess: ({ photoUploadResult, session }) => {
       queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-sessions-pending'] });
       queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
       clearDraft();
-      const photoMsg = photos.length > 0 ? ` y ${photos.length} foto(s)` : '';
+      const photoMsg =
+        photoUploadResult.uploadedCount > 0
+          ? ` y ${photoUploadResult.uploadedCount} foto(s)`
+          : '';
       toast.success('¡Sesión guardada!', {
         icon: <Check className="h-4 w-4 text-green-500" />,
         description: `Se han registrado ${climbs.length} escaladas${photoMsg} correctamente.`,
         duration: 4000,
       });
+      if (photoUploadResult.failedCount > 0) {
+        toast.warning(
+          `La sesión quedó guardada, pero ${photoUploadResult.failedCount} foto(s) no pudieron subirse.`,
+        );
+      }
       navigate(`/sessions/${session.id}`);
     },
     onError: (error) => {
@@ -314,7 +324,7 @@ export default function SessionWizard() {
     if (sessionType === 'training') {
       // Skip climb input for training sessions
       setStep('details');
-    } else if (sessionType === 'running') {
+    } else if (sessionType === 'running' || sessionType === 'bike') {
       // Running has its own form
       setStep('running');
     } else {
@@ -457,7 +467,11 @@ export default function SessionWizard() {
       )}
 
       {step === 'running' && (
-        <RunningSessionForm onBack={() => setStep('type')} />
+        <RunningSessionForm
+          activityType={sessionType === 'bike' ? 'bike' : 'running'}
+          plannedSessionId={plannedSessionId}
+          onBack={() => setStep('type')}
+        />
       )}
     </div>
   );

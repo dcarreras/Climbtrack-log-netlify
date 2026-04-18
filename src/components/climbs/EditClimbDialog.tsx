@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -123,6 +124,9 @@ export default function EditClimbDialog({ climb, sessionId, open, onOpenChange }
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Escalada</DialogTitle>
+          <DialogDescription>
+            Modifica color, grado, resultado, intentos, etiquetas y fotos de esta escalada.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

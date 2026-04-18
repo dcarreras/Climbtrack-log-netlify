@@ -1,24 +1,26 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { z } from 'zod';
+import { Lock, Mail, Mountain } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { toast } from 'sonner';
-import { Mountain, Mail, Lock, ArrowLeft } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { z } from 'zod';
 
 const authSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z.string().email('Introduce un email valido'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
 });
+
+type AuthMode = 'signin' | 'signup';
+const ALLOW_SIGNUP = import.meta.env.VITE_ALLOW_SIGNUP === 'true';
 
 export default function Auth() {
   const navigate = useNavigate();
   const { signIn, signUp, user, loading } = useAuth();
+  const [mode, setMode] = useState<AuthMode>('signin');
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,55 +39,49 @@ export default function Auth() {
       return true;
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const newErrors: { email?: string; password?: string } = {};
-        error.errors.forEach((err) => {
-          if (err.path[0] === 'email') newErrors.email = err.message;
-          if (err.path[0] === 'password') newErrors.password = err.message;
+        const nextErrors: { email?: string; password?: string } = {};
+        error.errors.forEach((issue) => {
+          if (issue.path[0] === 'email') nextErrors.email = issue.message;
+          if (issue.path[0] === 'password') nextErrors.password = issue.message;
         });
-        setErrors(newErrors);
+        setErrors(nextErrors);
       }
       return false;
     }
   };
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (!validateForm()) return;
-    
+    if (mode === 'signup' && !ALLOW_SIGNUP) {
+      setMode('signin');
+      toast.error('El alta desde la app está desactivada en este entorno');
+      return;
+    }
+
     setIsLoading(true);
-    const { error } = await signIn(email, password);
+    const isSignupMode = ALLOW_SIGNUP && mode === 'signup';
+    const authAction = isSignupMode ? signUp : signIn;
+    const { error } = await authAction(email, password);
     setIsLoading(false);
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        toast.error('Invalid email or password');
+        toast.error('Email o contraseña incorrectos');
+      } else if (error.message.includes('already registered')) {
+        toast.error('Ese email ya existe. Entra con tu cuenta principal.');
       } else {
         toast.error(error.message);
       }
-    } else {
-      toast.success('Welcome back!');
-      navigate('/home');
+      return;
     }
-  };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateForm()) return;
-    
-    setIsLoading(true);
-    const { error } = await signUp(email, password);
-    setIsLoading(false);
-
-    if (error) {
-      if (error.message.includes('already registered')) {
-        toast.error('This email is already registered. Try signing in instead.');
-      } else {
-        toast.error(error.message);
-      }
-    } else {
-      toast.success('Account created! Welcome to ClimbTracker.');
-      navigate('/home');
-    }
+    toast.success(
+      isSignupMode
+        ? 'Cuenta creada. Revisa el email si Supabase pide confirmación.'
+        : 'Sesión iniciada',
+    );
+    navigate('/home');
   };
 
   if (loading) {
@@ -99,111 +95,97 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-hero flex flex-col">
-      <div className="p-4">
-        <Link to="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-          Back to home
-        </Link>
-      </div>
-      
-      <div className="flex-1 flex items-center justify-center px-4 pb-20">
-        <div className="w-full max-w-md animate-slide-up">
-          <div className="flex items-center justify-center gap-3 mb-8">
-            <div className="p-3 rounded-xl bg-primary/10 glow-primary">
+    <div className="min-h-screen bg-gradient-hero px-4 py-10">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center">
+        <div className="w-full animate-slide-up">
+          <div className="mb-8 flex items-center justify-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-3 glow-primary">
               <Mountain className="h-8 w-8 text-primary" />
             </div>
             <span className="font-display text-3xl text-foreground">CLIMBTRACKER</span>
           </div>
 
           <Card className="card-elevated border-border/50">
-            <CardHeader className="text-center">
-              <CardTitle className="text-2xl">Welcome</CardTitle>
-              <CardDescription>Sign in or create an account to start tracking</CardDescription>
+            <CardHeader className="space-y-3 text-center">
+              <CardTitle className="text-2xl">Registro personal</CardTitle>
+              <CardDescription>
+                {ALLOW_SIGNUP
+                  ? 'Entra con tu cuenta principal. El alta queda solo para la cuenta inicial.'
+                  : 'Entra con tu cuenta principal. El alta desde esta app está cerrada.'}
+              </CardDescription>
+              {ALLOW_SIGNUP ? (
+                <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted/40 p-1">
+                  <Button
+                    type="button"
+                    variant={mode === 'signin' ? 'default' : 'ghost'}
+                    onClick={() => setMode('signin')}
+                  >
+                    Entrar
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={mode === 'signup' ? 'default' : 'ghost'}
+                    onClick={() => setMode('signup')}
+                  >
+                    Crear cuenta
+                  </Button>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-muted/40 p-3 text-sm text-muted-foreground">
+                  Si necesitas otra cuenta, actívala primero desde Supabase y vuelve a abrir el registro.
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              <Tabs defaultValue="signin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="signin">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                </TabsList>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="auth-email">Email</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="auth-email"
+                      type="email"
+                      placeholder="tu@email.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+                </div>
 
-                <TabsContent value="signin">
-                  <form onSubmit={handleSignIn} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="climber@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-password">Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? 'Signing in...' : 'Sign In'}
-                    </Button>
-                  </form>
-                </TabsContent>
+                <div className="space-y-2">
+                  <Label htmlFor="auth-password">Contraseña</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="auth-password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
+                </div>
 
-                <TabsContent value="signup">
-                  <form onSubmit={handleSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email</Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="climber@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password</Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pl-10"
-                        />
-                      </div>
-                      {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading ? 'Creating account...' : 'Create Account'}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading
+                    ? mode === 'signin' || !ALLOW_SIGNUP
+                      ? 'Entrando...'
+                      : 'Creando cuenta...'
+                    : mode === 'signin' || !ALLOW_SIGNUP
+                      ? 'Entrar'
+                      : 'Crear cuenta inicial'}
+                </Button>
+              </form>
+
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                <Link to="/" className="transition-colors hover:text-foreground">
+                  Volver al inicio de la app
+                </Link>
+              </div>
             </CardContent>
           </Card>
         </div>

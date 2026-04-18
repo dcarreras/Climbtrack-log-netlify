@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -14,8 +14,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  encodePlannedSessionNotes,
+  getPlannedSessionMeta,
+  planningOptions,
+  type PlannedFocus,
+} from '@/lib/planning';
 
-type SessionType = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running';
+type SessionType = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running' | 'bike';
 
 interface PlannedSession {
   id: string;
@@ -35,13 +41,16 @@ interface EditPlannedSessionDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const sessionTypeLabels: Record<SessionType, string> = {
-  boulder: 'Boulder',
-  rope: 'Vías',
-  hybrid: 'Híbrido',
-  training: 'Entrenamiento',
-  running: 'Running / Trail',
-};
+const planningOrder: PlannedFocus[] = [
+  'running',
+  'bike',
+  'strength',
+  'campus',
+  'rope',
+  'boulder',
+  'hybrid',
+  'training',
+];
 
 export default function EditPlannedSessionDialog({
   session,
@@ -51,20 +60,32 @@ export default function EditPlannedSessionDialog({
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     date: new Date(),
-    session_type: 'boulder' as SessionType,
+    focus: 'running' as PlannedFocus,
     notes: '',
     trainer_notes: '',
+    gym_id: '',
     distance_km: '',
     time_min: '',
   });
 
+  const { data: gyms = [] } = useQuery({
+    queryKey: ['gyms'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('gyms').select('*').order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   useEffect(() => {
     if (session) {
+      const { focus, notes } = getPlannedSessionMeta(session.session_type, session.notes);
       setFormData({
         date: new Date(session.date),
-        session_type: session.session_type,
-        notes: session.notes || '',
+        focus,
+        notes,
         trainer_notes: session.trainer_notes || '',
+        gym_id: session.gym_id || '',
         distance_km: session.distance_km?.toString() || '',
         time_min: session.time_min?.toString() || '',
       });
@@ -74,16 +95,24 @@ export default function EditPlannedSessionDialog({
   const updateMutation = useMutation({
     mutationFn: async () => {
       if (!session) return;
+      const selectedOption = planningOptions[formData.focus];
       
       const { error } = await supabase
         .from('planned_sessions')
         .update({
           date: format(formData.date, 'yyyy-MM-dd'),
-          session_type: formData.session_type,
-          notes: formData.notes || null,
+          session_type: selectedOption.sessionType,
+          notes: encodePlannedSessionNotes(formData.notes, formData.focus),
           trainer_notes: formData.trainer_notes || null,
-          distance_km: formData.distance_km ? parseFloat(formData.distance_km) : null,
-          time_min: formData.time_min ? parseInt(formData.time_min) : null,
+          gym_id: selectedOption.showGym ? formData.gym_id || null : null,
+          distance_km:
+            selectedOption.showDistance && formData.distance_km
+              ? parseFloat(formData.distance_km)
+              : null,
+          time_min:
+            selectedOption.showTime && formData.time_min
+              ? parseInt(formData.time_min)
+              : null,
         })
         .eq('id', session.id);
       
@@ -138,24 +167,67 @@ export default function EditPlannedSessionDialog({
           <div className="space-y-2">
             <Label>Tipo de sesión</Label>
             <Select
-              value={formData.session_type}
-              onValueChange={(v) => setFormData({ ...formData, session_type: v as SessionType })}
+              value={formData.focus}
+              onValueChange={(v) => setFormData({ ...formData, focus: v as PlannedFocus })}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(sessionTypeLabels).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
+                {planningOrder.map((focus) => (
+                  <SelectItem key={focus} value={focus}>
+                    {planningOptions[focus].label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              {planningOptions[formData.focus].description}
+            </p>
           </div>
 
+          {planningOptions[formData.focus].showGym && (
+            <div className="space-y-2">
+              <Label>Rocódromo o lugar</Label>
+              <Select
+                value={formData.gym_id || 'none'}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, gym_id: value === 'none' ? '' : value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin ubicación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin ubicación</SelectItem>
+                  {gyms.map((gym) => (
+                    <SelectItem key={gym.id} value={gym.id}>
+                      {gym.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {planningOptions[formData.focus].showTime && (
+            <div className="space-y-2">
+              <Label>
+                {formData.focus === 'running' || formData.focus === 'bike'
+                  ? 'Tiempo (min)'
+                  : 'Duración estimada (min)'}
+              </Label>
+              <Input
+                type="number"
+                placeholder={formData.focus === 'running' || formData.focus === 'bike' ? '60' : '90'}
+                value={formData.time_min}
+                onChange={(e) => setFormData({ ...formData, time_min: e.target.value })}
+              />
+            </div>
+          )}
+
           {/* Running specific fields */}
-          {formData.session_type === 'running' && (
+          {planningOptions[formData.focus].showDistance && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Distancia (km)</Label>
@@ -167,25 +239,16 @@ export default function EditPlannedSessionDialog({
                   onChange={(e) => setFormData({ ...formData, distance_km: e.target.value })}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Tiempo (min)</Label>
-                <Input
-                  type="number"
-                  placeholder="60"
-                  value={formData.time_min}
-                  onChange={(e) => setFormData({ ...formData, time_min: e.target.value })}
-                />
-              </div>
             </div>
           )}
 
           {/* Trainer Notes */}
           <div className="space-y-2">
-            <Label>Notas de la entrenadora</Label>
+            <Label>Plan de la sesión</Label>
             <Textarea
               value={formData.trainer_notes}
               onChange={(e) => setFormData({ ...formData, trainer_notes: e.target.value })}
-              placeholder="Instrucciones del entrenamiento..."
+              placeholder="Objetivo, series, repeticiones, ritmo o descansos..."
               rows={3}
             />
           </div>

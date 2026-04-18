@@ -1,38 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-
-// Define allowed origins for CORS
-const ALLOWED_ORIGINS = [
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://radiant-malasada-d6751a.netlify.app',
-];
-
-// Add any production domains dynamically from environment
-const PRODUCTION_URL = Deno.env.get('SITE_URL');
-if (PRODUCTION_URL) {
-  ALLOWED_ORIGINS.push(PRODUCTION_URL);
-}
-
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const isAllowed = origin && (
-    ALLOWED_ORIGINS.includes(origin) || 
-    origin.endsWith('.supabase.co') ||
-    origin.endsWith('.netlify.app')
-  );
-  
-  return {
-    'Access-Control-Allow-Origin': isAllowed && origin ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Credentials': 'true',
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const STRAVA_CLIENT_ID = Deno.env.get('STRAVA_CLIENT_ID');
 const STRAVA_CLIENT_SECRET = Deno.env.get('STRAVA_CLIENT_SECRET');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+interface StravaConnectionRow {
+  user_id: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+}
 
 // Map Strava activity types to session types
 function mapStravaTypeToSessionType(stravaType: string, sportType: string | null): string | null {
@@ -52,17 +32,24 @@ function mapStravaTypeToSessionType(stravaType: string, sportType: string | null
   if (type.includes('workout') || type.includes('weight') || type.includes('crossfit') || type.includes('hiit')) {
     return 'training';
   }
+
+  // Cycling activities
+  if (type.includes('ride') || type.includes('cycling') || type.includes('virtualride') || type.includes('ebikeride')) {
+    return 'bike';
+  }
   
-  // For other activities like cycling, swimming, etc. - we'll still sync them as 'training'
-  // so users can see all their cross-training
-  if (type.includes('ride') || type.includes('cycling') || type.includes('swim') || type.includes('yoga') || type.includes('walk') || type.includes('hike')) {
+  // For other activities like swimming, yoga or hiking, we'll still sync them as training
+  if (type.includes('swim') || type.includes('yoga') || type.includes('walk') || type.includes('hike')) {
     return 'training';
   }
   
   return null; // Skip activities we don't recognize
 }
 
-async function refreshTokenIfNeeded(supabase: any, connection: any): Promise<string> {
+async function refreshTokenIfNeeded(
+  supabase: ReturnType<typeof createClient>,
+  connection: StravaConnectionRow,
+): Promise<string> {
   const expiresAt = new Date(connection.expires_at);
   const now = new Date();
 
@@ -285,9 +272,10 @@ serve(async (req) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Strava sync error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : 'Unknown Strava sync error';
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

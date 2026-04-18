@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -103,6 +104,8 @@ export default function EditSessionDialog({ session, open, onOpenChange }: EditS
     { value: 'rope', label: 'Cuerda' },
     { value: 'hybrid', label: 'Mixto' },
     { value: 'training', label: 'Entrenamiento' },
+    { value: 'running', label: 'Running' },
+    { value: 'bike', label: 'Bici' },
   ];
 
   return (
@@ -110,6 +113,9 @@ export default function EditSessionDialog({ session, open, onOpenChange }: EditS
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Sesión</DialogTitle>
+          <DialogDescription>
+            Ajusta fecha, tipo, carga y notas de la sesión ya guardada.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

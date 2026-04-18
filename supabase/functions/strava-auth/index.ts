@@ -1,33 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-
-// Define allowed origins for CORS
-const ALLOWED_ORIGINS = [
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://radiant-malasada-d6751a.netlify.app',
-];
-
-// Add any production domains dynamically from environment
-const PRODUCTION_URL = Deno.env.get('SITE_URL');
-if (PRODUCTION_URL) {
-  ALLOWED_ORIGINS.push(PRODUCTION_URL);
-}
-
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const isAllowed = origin && (
-    ALLOWED_ORIGINS.includes(origin) || 
-    origin.endsWith('.supabase.co') ||
-    origin.endsWith('.netlify.app')
-  );
-  
-  return {
-    'Access-Control-Allow-Origin': isAllowed && origin ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Credentials': 'true',
-  };
-}
+import { getAllowedOrigins, getCorsHeaders } from "../_shared/cors.ts";
 
 const STRAVA_CLIENT_ID = Deno.env.get('STRAVA_CLIENT_ID');
 const STRAVA_CLIENT_SECRET = Deno.env.get('STRAVA_CLIENT_SECRET');
@@ -36,7 +9,8 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 serve(async (req) => {
   const origin = req.headers.get('origin');
-  const corsHeaders = getCorsHeaders(origin);
+  const allowedOrigins = getAllowedOrigins();
+  const corsHeaders = getCorsHeaders(origin, allowedOrigins);
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -85,9 +59,7 @@ serve(async (req) => {
       const error = url.searchParams.get('error');
 
       // Define allowed origins for postMessage - same list as CORS
-      const allowedOriginsJson = JSON.stringify([
-        ...ALLOWED_ORIGINS,
-      ]);
+      const allowedOriginsJson = JSON.stringify(allowedOrigins);
 
       if (error) {
         console.error('Strava auth error:', error);
@@ -98,8 +70,7 @@ serve(async (req) => {
                 const allowedOrigins = ${allowedOriginsJson};
                 const isAllowedOrigin = window.opener && (
                   allowedOrigins.includes(window.opener.origin) ||
-                  window.opener.origin.endsWith('.supabase.co') ||
-                  window.opener.origin.endsWith('.netlify.app')
+                  window.opener.origin.endsWith('.supabase.co')
                 );
                 if (isAllowedOrigin) {
                   window.opener.postMessage({ type: 'strava-auth-error', error: 'Authorization denied' }, window.opener.origin);
@@ -171,8 +142,7 @@ serve(async (req) => {
               const allowedOrigins = ${allowedOriginsJson};
               const isAllowedOrigin = window.opener && (
                 allowedOrigins.includes(window.opener.origin) ||
-                window.opener.origin.endsWith('.supabase.co') ||
-                window.opener.origin.endsWith('.netlify.app')
+                window.opener.origin.endsWith('.supabase.co')
               );
               if (isAllowedOrigin) {
                 window.opener.postMessage({ type: 'strava-auth-success' }, window.opener.origin);
@@ -227,9 +197,10 @@ serve(async (req) => {
     }
 
     throw new Error('Invalid action');
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Strava auth error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : 'Unknown Strava auth error';
+    return new Response(JSON.stringify({ error: message }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

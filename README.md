@@ -16,6 +16,7 @@
    - `OPENAI_API_KEY`
    - `OPENAI_MODEL` (opcional, por defecto `gpt-4o-mini`)
    - `SITE_URL` con la URL de Netlify para CORS
+   - `APP_ALLOWED_ORIGINS` con una lista separada por comas para `preview` y local
 
 ## Desarrollo local
 
@@ -23,6 +24,12 @@
 npm install
 npm run dev
 ```
+
+## Reactivacion en preview
+
+- Rama de trabajo: `preview`
+- Estrategia recomendada en plan gratuito: reutilizar el proyecto Supabase existente mientras siga respondiendo
+- Documento operativo: `docs/preview-reactivation-plan.md`
 
 ## Netlify
 

@@ -4,9 +4,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Image, Video, Trash2, Play, X, Expand } from 'lucide-react';
+import { removeAttachmentFiles } from '@/lib/storage';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -29,20 +31,7 @@ export default function MediaGallery({ attachments, sessionId }: MediaGalleryPro
 
   const deleteAttachment = useMutation({
     mutationFn: async (attachment: Attachment) => {
-      // Extract file path from URL
-      const url = new URL(attachment.file_url);
-      const pathParts = url.pathname.split('/');
-      const bucketIndex = pathParts.findIndex(p => p === 'climbing-media');
-      const filePath = pathParts.slice(bucketIndex + 1).join('/');
-
-      // Delete from storage
-      const { error: storageError } = await supabase.storage
-        .from('climbing-media')
-        .remove([filePath]);
-
-      if (storageError) {
-        console.warn('Storage deletion failed:', storageError);
-      }
+      await removeAttachmentFiles([attachment]);
 
       // Delete from database
       const { error: dbError } = await supabase
@@ -103,7 +92,13 @@ export default function MediaGallery({ attachments, sessionId }: MediaGalleryPro
       {/* Lightbox Dialog */}
       <Dialog open={!!selectedMedia} onOpenChange={() => setSelectedMedia(null)}>
         <DialogContent className="max-w-4xl p-0 bg-black/95 border-none">
-          <DialogHeader className="absolute top-4 right-4 z-10">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Vista ampliada del archivo</DialogTitle>
+            <DialogDescription>
+              Previsualización del archivo multimedia adjunto a la sesión.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="absolute top-4 right-4 z-10">
             <div className="flex gap-2">
               <Button
                 variant="destructive"
@@ -124,7 +119,7 @@ export default function MediaGallery({ attachments, sessionId }: MediaGalleryPro
                 <X className="h-4 w-4" />
               </Button>
             </div>
-          </DialogHeader>
+          </div>
           
           <div className="flex items-center justify-center min-h-[60vh] p-4">
             {selectedMedia?.type === 'photo' ? (

@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { format, parseISO, isToday, isPast } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Calendar, Check, Dumbbell, Mountain, ArrowRight, Plus, Footprints } from 'lucide-react';
+import { Calendar, Check, Dumbbell, Mountain, ArrowRight, Plus, Footprints, Bike } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PlannedSessionSummaryCard from '../PlannedSessionSummaryCard';
 import type { Database } from '@/integrations/supabase/types';
+import { getPlannedSessionMeta, type PlannedFocus } from '@/lib/planning';
 
 type PlannedSession = Database['public']['Tables']['planned_sessions']['Row'];
 
@@ -19,20 +20,15 @@ interface PlannedSessionStepProps {
   onNext: () => void;
 }
 
-const sessionTypeIcons: Record<string, React.ReactNode> = {
+const sessionTypeIcons: Record<PlannedFocus, React.ReactNode> = {
   boulder: <Mountain className="h-5 w-5" />,
   rope: <Mountain className="h-5 w-5" />,
   hybrid: <Mountain className="h-5 w-5" />,
   training: <Dumbbell className="h-5 w-5" />,
   running: <Footprints className="h-5 w-5" />,
-};
-
-const sessionTypeLabels: Record<string, string> = {
-  boulder: 'Boulder',
-  rope: 'Cuerda',
-  hybrid: 'Híbrida',
-  training: 'Entrenamiento',
-  running: 'Running',
+  bike: <Bike className="h-5 w-5" />,
+  strength: <Dumbbell className="h-5 w-5" />,
+  campus: <Dumbbell className="h-5 w-5" />,
 };
 
 export default function PlannedSessionStep({ value, onChange, onNext }: PlannedSessionStepProps) {
@@ -91,7 +87,7 @@ export default function PlannedSessionStep({ value, onChange, onNext }: PlannedS
         <div>
           <h2 className="text-xl font-bold">Preparando sesión</h2>
           <p className="text-muted-foreground text-sm mt-1">
-            {sessionTypeLabels[selectedSession.session_type]} - {getDateLabel(selectedSession.date)}
+            {getPlannedSessionMeta(selectedSession.session_type, selectedSession.notes).option.label} - {getDateLabel(selectedSession.date)}
           </p>
         </div>
 
@@ -168,47 +164,52 @@ export default function PlannedSessionStep({ value, onChange, onNext }: PlannedS
               </p>
             </div>
             {plannedSessions.map((session) => (
-              <Card
-                key={session.id}
-                className={cn(
-                  "p-4 cursor-pointer transition-all border-2",
-                  value === session.id
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-primary/50"
-                )}
-                onClick={() => handleSelectSession(session.id, session.session_type)}
-              >
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "h-12 w-12 rounded-full flex items-center justify-center shrink-0",
-                    value === session.id ? "bg-primary text-primary-foreground" : "bg-muted"
-                  )}>
-                    {sessionTypeIcons[session.session_type]}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-semibold">
-                        {sessionTypeLabels[session.session_type]}
-                      </h3>
-                      <span className={cn("text-sm", getDateClass(session.date))}>
-                        <Calendar className="h-3 w-3 inline mr-1" />
-                        {getDateLabel(session.date)}
-                      </span>
+              (() => {
+                const meta = getPlannedSessionMeta(session.session_type, session.notes);
+                return (
+                  <Card
+                    key={session.id}
+                    className={cn(
+                      "p-4 cursor-pointer transition-all border-2",
+                      value === session.id
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50"
+                    )}
+                    onClick={() => handleSelectSession(session.id, session.session_type)}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "h-12 w-12 rounded-full flex items-center justify-center shrink-0",
+                        value === session.id ? "bg-primary text-primary-foreground" : "bg-muted"
+                      )}>
+                        {sessionTypeIcons[meta.focus]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold">
+                            {meta.option.label}
+                          </h3>
+                          <span className={cn("text-sm", getDateClass(session.date))}>
+                            <Calendar className="h-3 w-3 inline mr-1" />
+                            {getDateLabel(session.date)}
+                          </span>
+                        </div>
+                        {session.trainer_notes && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {session.trainer_notes}
+                          </p>
+                        )}
+                        {meta.notes && !session.trainer_notes && (
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {meta.notes}
+                          </p>
+                        )}
+                      </div>
+                      {value === session.id && <Check className="h-5 w-5 text-primary shrink-0" />}
                     </div>
-                    {session.trainer_notes && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {session.trainer_notes}
-                      </p>
-                    )}
-                    {session.notes && !session.trainer_notes && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {session.notes}
-                      </p>
-                    )}
-                  </div>
-                  {value === session.id && <Check className="h-5 w-5 text-primary shrink-0" />}
-                </div>
-              </Card>
+                  </Card>
+                );
+              })()
             ))}
           </>
         ) : (

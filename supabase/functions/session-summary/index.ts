@@ -1,31 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.89.0';
-
-// Define allowed origins for CORS
-const ALLOWED_ORIGINS = [
-  'http://localhost:8080',
-  'http://localhost:5173',
-  'http://localhost:3000',
-];
-
-// Add any production domains dynamically from environment
-const PRODUCTION_URL = Deno.env.get('SITE_URL');
-if (PRODUCTION_URL) {
-  ALLOWED_ORIGINS.push(PRODUCTION_URL);
-}
-
-function getCorsHeaders(origin: string | null): Record<string, string> {
-  const isAllowed = origin && (
-    ALLOWED_ORIGINS.includes(origin) || 
-    origin.endsWith('.supabase.co')
-  );
-  
-  return {
-    'Access-Control-Allow-Origin': isAllowed && origin ? origin : ALLOWED_ORIGINS[0],
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Credentials': 'true',
-  };
-}
+import { getCorsHeaders } from "../_shared/cors.ts";
 
 const SYSTEM_PROMPT = `Eres un asistente de coaching para ClimbTracker. Tu único trabajo es transformar el plan de entrenamiento proporcionado en una ficha de resumen breve y accionable.
 

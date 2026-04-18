@@ -2,23 +2,29 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Home from "./pages/Home";
 import Sessions from "./pages/Sessions";
 import NewSession from "./pages/NewSession";
 import SessionDetail from "./pages/SessionDetail";
-import Analytics from "./pages/Analytics";
 import Profile from "./pages/Profile";
-import Timer from "./pages/Timer";
-import Planning from "./pages/Planning";
-import Library from "./pages/Library";
 import NotFound from "./pages/NotFound";
+import Planning from "./pages/Planning";
 
 const queryClient = new QueryClient();
+
+const RootRedirect = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return null;
+  }
+
+  return <Navigate to={user ? "/home" : "/auth"} replace />;
+};
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -28,7 +34,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/auth" element={<Auth />} />
             <Route 
               path="/home" 
@@ -71,14 +77,6 @@ const App = () => (
               } 
             />
             <Route 
-              path="/analytics" 
-              element={
-                <ProtectedRoute>
-                  <Analytics />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
               path="/profile" 
               element={
                 <ProtectedRoute>
@@ -86,30 +84,17 @@ const App = () => (
                 </ProtectedRoute>
               } 
             />
-            <Route 
-              path="/timer" 
-              element={
-                <ProtectedRoute>
-                  <Timer />
-                </ProtectedRoute>
-              } 
-            />
-            <Route 
-              path="/planning" 
+            <Route
+              path="/planning"
               element={
                 <ProtectedRoute>
                   <Planning />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="/library" 
-              element={
-                <ProtectedRoute>
-                  <Library />
-                </ProtectedRoute>
-              } 
-            />
+            <Route path="/analytics" element={<Navigate to="/home" replace />} />
+            <Route path="/timer" element={<Navigate to="/home" replace />} />
+            <Route path="/library" element={<Navigate to="/home" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
