@@ -5,40 +5,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useStrava } from '@/hooks/useStrava';
 import AppLayout from '@/components/layout/AppLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from '@/components/ui/pagination';
 import { RunningSessionCard } from '@/components/sessions/RunningSessionCard';
 import { ClimbSessionCard } from '@/components/sessions/ClimbSessionCard';
-import { 
-  Plus, 
-  Search, 
-  Calendar, 
-  Target, 
-  CheckCircle2,
-  Filter,
-  Activity,
-  Route,
-  RefreshCw
-} from 'lucide-react';
+import { Search, RefreshCw } from 'lucide-react';
 
-type SessionType = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running' | 'all';
+type SessionType = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running' | 'bike' | 'all';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -118,227 +89,226 @@ export default function Sessions() {
   // Stats
   const totalSessions = sessions?.length || 0;
   const totalClimbs = sessions?.reduce((acc, s) => acc + (s.climbs?.length || 0), 0) || 0;
-  const totalSends = sessions?.reduce((acc, s) => acc + (s.climbs?.filter((c: any) => c.sent).length || 0), 0) || 0;
+  const totalSends =
+    sessions?.reduce(
+      (acc, s) => acc + (s.climbs?.filter((c: { sent: boolean }) => c.sent).length || 0),
+      0,
+    ) || 0;
   const totalKm = sessions?.reduce((acc, s) => acc + (Number(s.distance_km) || 0), 0) || 0;
 
   // Check if session is running type
-  const isRunningSession = (sessionType: string) => sessionType === 'running';
+  const isEnduranceSession = (sessionType: string) =>
+    sessionType === 'running' || sessionType === 'bike';
+
+  const T = {
+    bg: '#050505', bgCard: '#131313', ink: '#FAFAF9',
+    inkMuted: 'rgba(250,250,249,0.62)', inkFaint: 'rgba(250,250,249,0.38)',
+    inkDim: 'rgba(250,250,249,0.16)', rule: 'rgba(250,250,249,0.09)',
+    ruleStrong: 'rgba(250,250,249,0.18)', accent: '#E23A1F',
+    sans: "'Urbanist', system-ui, sans-serif",
+    mono: "'JetBrains Mono', 'SF Mono', monospace",
+  };
+
+  const filters: { k: SessionType; l: string }[] = [
+    { k: 'all', l: 'Todo' },
+    { k: 'boulder', l: 'Boulder' },
+    { k: 'rope', l: 'Cuerda' },
+    { k: 'running', l: 'Running' },
+    { k: 'bike', l: 'Bici' },
+  ];
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div style={{ background: T.bg, minHeight: '100vh', paddingBottom: 100 }}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold">Mis Sesiones</h1>
-            <p className="text-muted-foreground">Historial completo de entrenamientos</p>
+        <div style={{ padding: '28px 20px 24px' }}>
+          <div style={{ fontFamily: T.sans, fontSize: 10, color: T.inkFaint,
+            textTransform: 'uppercase', letterSpacing: '0.24em', marginBottom: 10 }}>
+            Historial
           </div>
-          <div className="flex items-center gap-2">
-            {isStravaConnected && (
-              <Button 
-                variant="outline" 
-                onClick={syncActivities} 
-                disabled={isSyncing}
-                className="border-orange-500/30 text-orange-500 hover:bg-orange-500/10"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                <Activity className="h-4 w-4 mr-1" />
-                Sync Strava
-              </Button>
-            )}
-            <Button onClick={() => navigate('/sessions/new')}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nueva Sesión
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="card-elevated">
-            <CardContent className="pt-4 text-center">
-              <Calendar className="h-5 w-5 text-primary mx-auto mb-1" />
-              <div className="text-2xl font-bold">{totalSessions}</div>
-              <div className="text-xs text-muted-foreground">Sesiones</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="pt-4 text-center">
-              <Target className="h-5 w-5 text-primary mx-auto mb-1" />
-              <div className="text-2xl font-bold">{totalClimbs}</div>
-              <div className="text-xs text-muted-foreground">Escaladas</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="pt-4 text-center">
-              <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto mb-1" />
-              <div className="text-2xl font-bold text-green-500">{totalSends}</div>
-              <div className="text-xs text-muted-foreground">Completadas</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="pt-4 text-center">
-              <Route className="h-5 w-5 text-cyan-500 mx-auto mb-1" />
-              <div className="text-2xl font-bold text-cyan-500">{totalKm.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">km totales</div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters */}
-        <Card className="card-elevated">
-          <CardContent className="pt-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por gimnasio, notas..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="pl-9"
-                />
-              </div>
-              <Select value={typeFilter} onValueChange={(v) => handleFilterChange(v as SessionType)}>
-                <SelectTrigger className="w-full sm:w-44">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los tipos</SelectItem>
-                  <SelectItem value="boulder">Boulder</SelectItem>
-                  <SelectItem value="rope">Cuerda</SelectItem>
-                  <SelectItem value="hybrid">Mixto</SelectItem>
-                  <SelectItem value="training">Entrenamiento</SelectItem>
-                  <SelectItem value="running">Running</SelectItem>
-                </SelectContent>
-              </Select>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <div style={{ fontFamily: T.sans, fontSize: 42, color: T.ink, lineHeight: 0.95,
+              fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
+              Sesiones
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Sessions List */}
-        <Card className="card-elevated">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center justify-between">
-              <span>
-                Registro de Sesiones
-                {filteredSessions.length !== sessions?.length && (
-                  <span className="text-sm font-normal text-muted-foreground ml-2">
-                    ({filteredSessions.length} de {sessions?.length})
-                  </span>
-                )}
-              </span>
-              {filteredSessions.length > 0 && (
-                <Badge variant="secondary" className="text-xs font-normal">
-                  Mostrando {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filteredSessions.length)} de {filteredSessions.length}
-                </Badge>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {isStravaConnected && (
+                <button onClick={syncActivities} disabled={isSyncing} style={{
+                  background: 'transparent', border: `1px solid rgba(249,115,22,0.4)`,
+                  color: '#f97316', padding: '8px 14px', cursor: 'pointer',
+                  fontFamily: T.sans, fontSize: 10, fontWeight: 500,
+                  letterSpacing: '0.14em', textTransform: 'uppercase',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <RefreshCw style={{ width: 12, height: 12 }} className={isSyncing ? 'animate-spin' : ''} />
+                  Strava
+                </button>
               )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {isError ? (
-              <div className="p-8 text-center">
-                <Calendar className="h-12 w-12 text-destructive mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No pudimos cargar las sesiones</h3>
-                <p className="text-muted-foreground mb-4">
-                  {error instanceof Error ? error.message : 'Error desconocido. Intenta recargar.'}
-                </p>
-                <Button variant="outline" onClick={() => refetch()}>
-                  Reintentar
-                </Button>
-              </div>
-            ) : isLoading ? (
-              <div className="p-8 text-center text-muted-foreground">
-                Cargando sesiones...
-              </div>
-            ) : filteredSessions.length === 0 ? (
-              <div className="p-8 text-center">
-                <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">
-                  {sessions?.length === 0 ? 'Sin sesiones registradas' : 'Sin resultados'}
-                </h3>
-                <p className="text-muted-foreground mb-4">
-                  {sessions?.length === 0 
-                    ? 'Comienza registrando tu primera sesión de escalada'
-                    : 'Intenta con otros filtros de búsqueda'
-                  }
-                </p>
-                {sessions?.length === 0 && (
-                  <Button onClick={() => navigate('/sessions/new')}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nueva Sesión
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {paginatedSessions.map((session) => (
-                    isRunningSession(session.session_type) ? (
-                      <RunningSessionCard
-                        key={session.id}
-                        session={session}
-                        onClick={() => navigate(`/sessions/${session.id}`)}
-                      />
-                    ) : (
-                      <ClimbSessionCard
-                        key={session.id}
-                        session={session}
-                        onClick={() => navigate(`/sessions/${session.id}`)}
-                      />
-                    )
-                  ))}
-                </div>
+              <button onClick={() => navigate('/sessions/new')} style={{
+                background: T.ink, color: T.bg, border: 'none',
+                padding: '10px 18px', cursor: 'pointer',
+                fontFamily: T.sans, fontSize: 11, fontWeight: 600,
+                letterSpacing: '0.16em', textTransform: 'uppercase',
+              }}>
+                + Nueva
+              </button>
+            </div>
+          </div>
+        </div>
 
-                {/* Pagination */}
-                {totalPages > 1 && (
-                  <Pagination className="mt-6">
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious 
-                          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                          className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                        />
-                      </PaginationItem>
-                      
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        let pageNum: number;
-                        if (totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-                        
-                        return (
-                          <PaginationItem key={pageNum}>
-                            <PaginationLink
-                              onClick={() => setCurrentPage(pageNum)}
-                              isActive={currentPage === pageNum}
-                              className="cursor-pointer"
-                            >
-                              {pageNum}
-                            </PaginationLink>
-                          </PaginationItem>
-                        );
-                      })}
-                      
-                      <PaginationItem>
-                        <PaginationNext 
-                          onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                          className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
+        {/* Summary strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+          borderTop: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }}>
+          {[
+            { value: totalSessions, label: 'Total' },
+            { value: totalClimbs, label: 'Vías' },
+            { value: totalSends, label: 'Tops' },
+            { value: `${totalKm.toFixed(0)}`, label: 'km' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              padding: '16px 16px',
+              borderRight: i < 3 ? `1px solid ${T.rule}` : 'none',
+            }}>
+              <div style={{ fontFamily: T.sans, fontSize: 26, color: T.ink,
+                fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em' }}>
+                {s.value}
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 9, color: T.inkFaint,
+                textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 6, fontWeight: 500 }}>
+                {s.label}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Type filters */}
+        <div style={{ padding: '16px 20px 0' }}>
+          <div style={{ display: 'flex', borderBottom: `1px solid ${T.rule}` }}>
+            {filters.map(f => (
+              <button key={f.k} onClick={() => handleFilterChange(f.k)} style={{
+                flex: 1, background: 'none', border: 'none', cursor: 'pointer',
+                padding: '10px 0', position: 'relative',
+                fontFamily: T.sans, fontSize: 10,
+                color: typeFilter === f.k ? T.ink : T.inkFaint,
+                textTransform: 'uppercase', letterSpacing: '0.18em',
+                fontWeight: typeFilter === f.k ? 600 : 500,
+              }}>
+                {f.l}
+                {typeFilter === f.k && (
+                  <div style={{ position: 'absolute', bottom: -1, left: 0, right: 0,
+                    height: 1, background: T.ink }} />
                 )}
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10,
+            padding: '12px 0', borderBottom: `1px solid ${T.rule}` }}>
+            <Search style={{ width: 14, height: 14, color: T.inkFaint, flexShrink: 0 }} />
+            <input
+              value={searchTerm}
+              onChange={e => handleSearchChange(e.target.value)}
+              placeholder="Buscar gimnasio, notas…"
+              style={{
+                flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                color: T.ink, fontFamily: T.sans, fontSize: 14,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Sessions list */}
+        <div style={{ padding: '0 20px' }}>
+          {isError ? (
+            <div style={{ padding: '40px 0', textAlign: 'center' }}>
+              <div style={{ fontFamily: T.sans, fontSize: 14, color: T.inkFaint, marginBottom: 16 }}>
+                Error al cargar sesiones
+              </div>
+              <button onClick={() => refetch()} style={{
+                background: 'transparent', border: `1px solid ${T.ruleStrong}`,
+                color: T.ink, padding: '10px 20px', cursor: 'pointer',
+                fontFamily: T.sans, fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase',
+              }}>Reintentar</button>
+            </div>
+          ) : isLoading ? (
+            <div style={{ padding: '40px 0', textAlign: 'center',
+              fontFamily: T.sans, fontSize: 13, color: T.inkFaint }}>
+              Cargando…
+            </div>
+          ) : filteredSessions.length === 0 ? (
+            <div style={{ padding: '40px 0', textAlign: 'center' }}>
+              <div style={{ fontFamily: T.sans, fontSize: 15, color: T.ink,
+                fontWeight: 600, marginBottom: 8 }}>
+                {sessions?.length === 0 ? 'Sin sesiones' : 'Sin resultados'}
+              </div>
+              <div style={{ fontFamily: T.sans, fontSize: 13, color: T.inkFaint, marginBottom: 20 }}>
+                {sessions?.length === 0 ? 'Empieza registrando tu primera sesión.' : 'Prueba otros filtros.'}
+              </div>
+              {sessions?.length === 0 && (
+                <button onClick={() => navigate('/sessions/new')} style={{
+                  background: T.ink, color: T.bg, border: 'none',
+                  padding: '12px 24px', cursor: 'pointer',
+                  fontFamily: T.sans, fontSize: 11, fontWeight: 600,
+                  letterSpacing: '0.16em', textTransform: 'uppercase',
+                }}>+ Nueva sesión</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div style={{ marginTop: 8 }}>
+                {paginatedSessions.map(session =>
+                  isEnduranceSession(session.session_type) ? (
+                    <RunningSessionCard key={session.id} session={session} onClick={() => navigate(`/sessions/${session.id}`)} />
+                  ) : (
+                    <ClimbSessionCard key={session.id} session={session} onClick={() => navigate(`/sessions/${session.id}`)} />
+                  )
+                )}
+              </div>
+
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 4,
+                  padding: '24px 0', borderTop: `1px solid ${T.rule}`, marginTop: 8 }}>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    style={{
+                      background: 'transparent', border: `1px solid ${T.ruleStrong}`,
+                      color: currentPage === 1 ? T.inkDim : T.ink,
+                      padding: '8px 14px', cursor: currentPage === 1 ? 'default' : 'pointer',
+                      fontFamily: T.mono, fontSize: 11,
+                    }}>←</button>
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5) {
+                      if (currentPage <= 3) pageNum = i + 1;
+                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                      else pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <button key={pageNum} onClick={() => setCurrentPage(pageNum)} style={{
+                        background: currentPage === pageNum ? T.ink : 'transparent',
+                        color: currentPage === pageNum ? T.bg : T.inkMuted,
+                        border: `1px solid ${currentPage === pageNum ? T.ink : T.rule}`,
+                        padding: '8px 14px', cursor: 'pointer',
+                        fontFamily: T.mono, fontSize: 11,
+                      }}>{pageNum}</button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    style={{
+                      background: 'transparent', border: `1px solid ${T.ruleStrong}`,
+                      color: currentPage === totalPages ? T.inkDim : T.ink,
+                      padding: '8px 14px', cursor: currentPage === totalPages ? 'default' : 'pointer',
+                      fontFamily: T.mono, fontSize: 11,
+                    }}>→</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </AppLayout>
   );

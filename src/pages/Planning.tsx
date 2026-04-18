@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,13 +14,53 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { format, isSameDay, startOfMonth, endOfMonth } from 'date-fns';
+import {
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameDay,
+  isWithinInterval,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+  startOfDay,
+  subDays,
+} from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Plus, Check, Trash2, Calendar as CalendarIcon, Dumbbell, Pencil, MapPin, Clock, Route, CheckCircle2, CircleDashed } from 'lucide-react';
+import {
+  Activity,
+  Bike,
+  Cable,
+  Plus,
+  Check,
+  Trash2,
+  Calendar as CalendarIcon,
+  Dumbbell,
+  Pencil,
+  MapPin,
+  Clock,
+  Route,
+  CheckCircle2,
+  CircleDashed,
+  Footprints,
+  Mountain,
+  Zap,
+  Layers3,
+  TrendingUp,
+  ChevronRight,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import EditPlannedSessionDialog from '@/components/planning/EditPlannedSessionDialog';
+import TrainingLoadACWR from '@/components/dashboard/TrainingLoadACWR';
+import {
+  encodePlannedSessionNotes,
+  getPlannedSessionMeta,
+  planningOptions,
+  type PlannedFocus,
+} from '@/lib/planning';
+import type { SessionData } from '@/utils/metricsUtils';
 
-type SessionType = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running';
+type SessionType = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running' | 'bike';
 
 interface PlannedSession {
   id: string;
@@ -34,21 +75,89 @@ interface PlannedSession {
   gyms?: { name: string } | null;
 }
 
-const sessionTypeLabels: Record<SessionType, string> = {
-  boulder: 'Boulder',
-  rope: 'Vías',
-  hybrid: 'Híbrido',
-  training: 'Entrenamiento',
-  running: 'Running / Trail',
+interface LoggedSession extends SessionData {
+  description: string | null;
+  notes: string | null;
+  gyms?: { name: string; city: string | null } | null;
+}
+
+const planningOrder: PlannedFocus[] = [
+  'running',
+  'bike',
+  'strength',
+  'campus',
+  'rope',
+  'boulder',
+  'hybrid',
+];
+
+const planningIcons: Record<PlannedFocus, React.ReactNode> = {
+  boulder: <Mountain className="h-4 w-4" />,
+  rope: <Mountain className="h-4 w-4" />,
+  hybrid: <Layers3 className="h-4 w-4" />,
+  running: <Footprints className="h-4 w-4" />,
+  bike: <Bike className="h-4 w-4" />,
+  strength: <Dumbbell className="h-4 w-4" />,
+  campus: <Zap className="h-4 w-4" />,
+  training: <Dumbbell className="h-4 w-4" />,
 };
 
-const sessionTypeColors: Record<SessionType, string> = {
-  boulder: 'bg-orange-500',
-  rope: 'bg-blue-500',
-  hybrid: 'bg-purple-500',
-  training: 'bg-green-500',
-  running: 'bg-amber-500',
+const CLIMB_SESSION_TYPES = new Set<SessionType>(['boulder', 'rope', 'hybrid']);
+
+const loggedSessionMeta: Record<
+  SessionType,
+  { label: string; badgeClass: string; icon: React.ReactNode }
+> = {
+  boulder: {
+    label: 'Bloque',
+    badgeClass: 'border-orange-500/20 bg-orange-500/10 text-orange-600',
+    icon: <Mountain className="h-3 w-3" />,
+  },
+  rope: {
+    label: 'Vías',
+    badgeClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600',
+    icon: <Cable className="h-3 w-3" />,
+  },
+  hybrid: {
+    label: 'Mixta',
+    badgeClass: 'border-violet-500/20 bg-violet-500/10 text-violet-600',
+    icon: <Layers3 className="h-3 w-3" />,
+  },
+  training: {
+    label: 'Entrenamiento',
+    badgeClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600',
+    icon: <Dumbbell className="h-3 w-3" />,
+  },
+  running: {
+    label: 'Running',
+    badgeClass: 'border-cyan-500/20 bg-cyan-500/10 text-cyan-600',
+    icon: <Footprints className="h-3 w-3" />,
+  },
+  bike: {
+    label: 'Bici',
+    badgeClass: 'border-sky-500/20 bg-sky-500/10 text-sky-600',
+    icon: <Bike className="h-3 w-3" />,
+  },
 };
+
+function getSessionDuration(session: Pick<LoggedSession, 'duration_min' | 'time_min'>) {
+  return session.duration_min || session.time_min || 0;
+}
+
+function getSessionLoad(session: LoggedSession) {
+  const duration = getSessionDuration(session);
+  const defaultRpe = CLIMB_SESSION_TYPES.has(session.session_type) ? 6 : 5;
+  const rpe = session.rpe_1_10 || defaultRpe;
+  const distance = Number(session.distance_km) || 0;
+  const distanceLoad =
+    session.session_type === 'running'
+      ? distance * 10
+      : session.session_type === 'bike'
+        ? distance * 3
+        : 0;
+
+  return duration * rpe + distanceLoad;
+}
 
 export default function Planning() {
   const { user } = useAuth();
@@ -58,15 +167,16 @@ export default function Planning() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingSession, setEditingSession] = useState<PlannedSession | null>(null);
   const [newSession, setNewSession] = useState({
-    session_type: 'boulder' as SessionType,
+    focus: 'running' as PlannedFocus,
     notes: '',
     trainer_notes: '',
+    gym_id: '',
     distance_km: '',
     time_min: '',
   });
 
   // Fetch planned sessions
-  const { data: plannedSessions = [], isLoading } = useQuery({
+  const { data: plannedSessions = [] } = useQuery({
     queryKey: ['planned-sessions', user?.id, format(month, 'yyyy-MM')],
     queryFn: async () => {
       const start = startOfMonth(month);
@@ -85,6 +195,38 @@ export default function Planning() {
     enabled: !!user,
   });
 
+  const { data: profile } = useQuery({
+    queryKey: ['profile', user?.id, 'planning'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('weekly_running_km_goal')
+        .eq('id', user!.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
+  const { data: loggedSessions = [], isLoading: loggedSessionsLoading } = useQuery({
+    queryKey: ['sessions', user?.id, 'planning'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('sessions')
+        .select(
+          'id, date, session_type, duration_min, time_min, distance_km, elevation_gain_m, rpe_1_10, description, notes, gyms(name, city), climbs(id, sent, flash, attempts, discipline, color_band, grade_value, session_id)',
+        )
+        .eq('user_id', user!.id)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      return data as LoggedSession[];
+    },
+    enabled: !!user,
+  });
+
   // Fetch gyms for selection
   const { data: gyms = [] } = useQuery({
     queryKey: ['gyms'],
@@ -99,15 +241,20 @@ export default function Planning() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('No user');
+      const selectedOption = planningOptions[newSession.focus];
       
       const { error } = await supabase.from('planned_sessions').insert({
         user_id: user.id,
         date: format(selectedDate, 'yyyy-MM-dd'),
-        session_type: newSession.session_type,
-        notes: newSession.notes || null,
+        session_type: selectedOption.sessionType,
+        notes: encodePlannedSessionNotes(newSession.notes, newSession.focus),
         trainer_notes: newSession.trainer_notes || null,
-        distance_km: newSession.distance_km ? parseFloat(newSession.distance_km) : null,
-        time_min: newSession.time_min ? parseInt(newSession.time_min) : null,
+        gym_id: selectedOption.showGym ? newSession.gym_id || null : null,
+        distance_km:
+          selectedOption.showDistance && newSession.distance_km
+            ? parseFloat(newSession.distance_km)
+            : null,
+        time_min: selectedOption.showTime && newSession.time_min ? parseInt(newSession.time_min) : null,
       });
       
       if (error) throw error;
@@ -116,7 +263,14 @@ export default function Planning() {
       toast.success('Sesión planificada añadida');
       queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
       setDialogOpen(false);
-      setNewSession({ session_type: 'boulder', notes: '', trainer_notes: '', distance_km: '', time_min: '' });
+      setNewSession({
+        focus: 'running',
+        notes: '',
+        trainer_notes: '',
+        gym_id: '',
+        distance_km: '',
+        time_min: '',
+      });
     },
     onError: (error) => {
       toast.error('Error: ' + error.message);
@@ -154,67 +308,229 @@ export default function Planning() {
     },
   });
 
+  const weeklyRunningGoal = Number(profile?.weekly_running_km_goal) || 20;
+
   // Get sessions for selected date
-  const selectedDateSessions = plannedSessions.filter((s) =>
-    isSameDay(new Date(s.date), selectedDate)
+  const selectedDateSessions = plannedSessions.filter((session) =>
+    isSameDay(parseISO(session.date), selectedDate),
   );
+
+  const selectedDateLoggedSessions = loggedSessions.filter((session) =>
+    isSameDay(parseISO(session.date), selectedDate),
+  );
+
+  const previousLoggedSessions = loggedSessions
+    .filter((session) => parseISO(session.date) < startOfDay(selectedDate))
+    .slice(0, 6);
 
   // Get dates with sessions for calendar highlighting
   const datesWithSessions = plannedSessions.reduce((acc, session) => {
     const dateStr = session.date;
+    const { focus } = getPlannedSessionMeta(session.session_type, session.notes);
     if (!acc[dateStr]) {
-      acc[dateStr] = { types: [], completed: session.completed };
+      acc[dateStr] = { focuses: [] as PlannedFocus[], completed: session.completed };
     }
-    acc[dateStr].types.push(session.session_type);
+    acc[dateStr].focuses.push(focus);
+    acc[dateStr].completed = acc[dateStr].completed && session.completed;
     return acc;
-  }, {} as Record<string, { types: SessionType[]; completed: boolean }>);
+  }, {} as Record<string, { focuses: PlannedFocus[]; completed: boolean }>);
+
+  const datesWithLoggedSessions = useMemo(
+    () => new Set(loggedSessions.map((session) => session.date)),
+    [loggedSessions],
+  );
 
   // Stats
-  const completedSessions = plannedSessions.filter(s => s.completed);
-  const pendingSessions = plannedSessions.filter(s => !s.completed);
-  const totalPlannedKm = plannedSessions.reduce((acc, s) => acc + (Number(s.distance_km) || 0), 0);
-  const completedKm = completedSessions.reduce((acc, s) => acc + (Number(s.distance_km) || 0), 0);
+  const completedSessions = plannedSessions.filter((session) => session.completed);
+  const pendingSessions = plannedSessions.filter((session) => !session.completed);
+  const totalPlannedKm = plannedSessions.reduce(
+    (acc, session) => acc + (Number(session.distance_km) || 0),
+    0,
+  );
+  const completedKm = completedSessions.reduce(
+    (acc, session) => acc + (Number(session.distance_km) || 0),
+    0,
+  );
+
+  const trainingSummary = useMemo(() => {
+    const now = new Date();
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const acuteStart = startOfDay(subDays(now, 6));
+
+    const sessionsThisWeek = loggedSessions.filter((session) =>
+      isWithinInterval(parseISO(session.date), { start: weekStart, end: weekEnd }),
+    );
+    const acuteSessions = loggedSessions.filter(
+      (session) => parseISO(session.date) >= acuteStart,
+    );
+    const runningThisWeek = sessionsThisWeek.filter((session) => session.session_type === 'running');
+    const bikeThisWeek = sessionsThisWeek.filter((session) => session.session_type === 'bike');
+    const climbThisWeek = sessionsThisWeek.filter((session) =>
+      CLIMB_SESSION_TYPES.has(session.session_type),
+    );
+    const climbAttempts = climbThisWeek.reduce(
+      (sum, session) =>
+        sum +
+        (session.climbs?.reduce((total, climb) => total + (climb.attempts || 0), 0) || 0),
+      0,
+    );
+    const climbSends = climbThisWeek.reduce(
+      (sum, session) =>
+        sum + (session.climbs?.filter((climb) => climb.sent).length || 0),
+      0,
+    );
+    const runningKm = runningThisWeek.reduce(
+      (sum, session) => sum + (Number(session.distance_km) || 0),
+      0,
+    );
+    const runningElevation = runningThisWeek.reduce(
+      (sum, session) => sum + (Number(session.elevation_gain_m) || 0),
+      0,
+    );
+    const bikeKm = bikeThisWeek.reduce(
+      (sum, session) => sum + (Number(session.distance_km) || 0),
+      0,
+    );
+    const bikeElevation = bikeThisWeek.reduce(
+      (sum, session) => sum + (Number(session.elevation_gain_m) || 0),
+      0,
+    );
+    const weeklyMinutes = sessionsThisWeek.reduce(
+      (sum, session) => sum + getSessionDuration(session),
+      0,
+    );
+    const acuteLoad = acuteSessions.reduce((sum, session) => sum + getSessionLoad(session), 0);
+    const avgRpe =
+      sessionsThisWeek.filter((session) => session.rpe_1_10).length > 0
+        ? sessionsThisWeek.reduce((sum, session) => sum + (session.rpe_1_10 || 0), 0) /
+          sessionsThisWeek.filter((session) => session.rpe_1_10).length
+        : 0;
+
+    return {
+      sessionsThisWeek,
+      weeklyMinutes,
+      acuteLoad,
+      avgRpe,
+      runningKm,
+      runningElevation,
+      bikeKm,
+      bikeElevation,
+      bikeSessions: bikeThisWeek.length,
+      climbSessions: climbThisWeek.length,
+      climbAttempts,
+      climbSends,
+      runningGoalProgress: weeklyRunningGoal > 0 ? (runningKm / weeklyRunningGoal) * 100 : 0,
+    };
+  }, [loggedSessions, weeklyRunningGoal]);
+
+  const renderLoggedSessionCard = (session: LoggedSession) => {
+    const meta = loggedSessionMeta[session.session_type];
+    const duration = getSessionDuration(session);
+    const climbCount = session.climbs?.length || 0;
+    const sendCount = session.climbs?.filter((climb) => climb.sent).length || 0;
+    const summaryText = session.description || session.notes;
+
+    return (
+      <Link key={session.id} to={`/sessions/${session.id}`}>
+        <Card className="card-elevated transition-all hover:border-primary/30">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <Badge variant="outline" className={cn('gap-1', meta.badgeClass)}>
+                    {meta.icon}
+                    {meta.label}
+                  </Badge>
+                  <span className="text-sm font-medium">
+                    {format(parseISO(session.date), "EEE d MMM", { locale: es })}
+                  </span>
+                  {session.gyms?.name && (
+                    <span className="text-xs text-muted-foreground">{session.gyms.name}</span>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                  {duration > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {duration} min
+                    </span>
+                  )}
+                  {session.distance_km ? (
+                    <span className="flex items-center gap-1">
+                      <Route className="h-3 w-3" />
+                      {Number(session.distance_km).toFixed(1)} km
+                    </span>
+                  ) : null}
+                  {session.rpe_1_10 ? (
+                    <span className="flex items-center gap-1">
+                      <TrendingUp className="h-3 w-3" />
+                      RPE {session.rpe_1_10}
+                    </span>
+                  ) : null}
+                  {climbCount > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Mountain className="h-3 w-3" />
+                      {sendCount}/{climbCount} tops
+                    </span>
+                  )}
+                </div>
+
+                {summaryText && (
+                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{summaryText}</p>
+                )}
+              </div>
+
+              <ChevronRight className="mt-1 h-4 w-4 flex-shrink-0 text-muted-foreground" />
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
+    );
+  };
+
+  const Ts = {
+    bg: '#050505', ink: '#FAFAF9', inkFaint: 'rgba(250,250,249,0.38)',
+    rule: 'rgba(250,250,249,0.09)', sans: "'Urbanist', system-ui, sans-serif",
+    mono: "'JetBrains Mono', 'SF Mono', monospace",
+  };
 
   return (
     <AppLayout>
-      <div className="space-y-6 pb-20">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Planificación</h1>
-            <p className="text-muted-foreground">Sesiones planificadas por tu entrenadora</p>
+      <div className="space-y-6 pb-20" style={{ background: Ts.bg, minHeight: '100vh' }}>
+        {/* Header */}
+        <div style={{ padding: '28px 20px 0' }}>
+          <div style={{ fontFamily: Ts.sans, fontSize: 10, color: Ts.inkFaint,
+            textTransform: 'uppercase', letterSpacing: '0.24em', marginBottom: 10 }}>
+            Planificación
+          </div>
+          <div style={{ fontFamily: Ts.sans, fontSize: 42, color: Ts.ink, lineHeight: 0.95,
+            fontWeight: 700, letterSpacing: '-0.025em', textTransform: 'uppercase' }}>
+            Calendario
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <Card className="card-elevated">
-            <CardContent className="p-3 text-center">
-              <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto mb-1" />
-              <div className="text-xl font-bold text-green-500">{completedSessions.length}</div>
-              <div className="text-xs text-muted-foreground">Completadas</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="p-3 text-center">
-              <CircleDashed className="h-4 w-4 text-amber-500 mx-auto mb-1" />
-              <div className="text-xl font-bold text-amber-500">{pendingSessions.length}</div>
-              <div className="text-xs text-muted-foreground">Pendientes</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="p-3 text-center">
-              <Route className="h-4 w-4 text-cyan-500 mx-auto mb-1" />
-              <div className="text-xl font-bold text-cyan-500">{completedKm.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">km completados</div>
-            </CardContent>
-          </Card>
-          <Card className="card-elevated">
-            <CardContent className="p-3 text-center">
-              <MapPin className="h-4 w-4 text-muted-foreground mx-auto mb-1" />
-              <div className="text-xl font-bold">{totalPlannedKm.toFixed(1)}</div>
-              <div className="text-xs text-muted-foreground">km planificados</div>
-            </CardContent>
-          </Card>
+        {/* Stats strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+          borderTop: `1px solid ${Ts.rule}`, borderBottom: `1px solid ${Ts.rule}`,
+          margin: '20px 0 0' }}>
+          {[
+            { value: completedSessions.length, label: 'Completadas' },
+            { value: pendingSessions.length, label: 'Pendientes' },
+            { value: `${completedKm.toFixed(1)}`, label: 'km reales' },
+            { value: `${totalPlannedKm.toFixed(1)}`, label: 'km plan.' },
+          ].map((s, i) => (
+            <div key={i} style={{
+              padding: '14px 12px',
+              borderRight: i < 3 ? `1px solid ${Ts.rule}` : 'none',
+            }}>
+              <div style={{ fontFamily: Ts.sans, fontSize: 22, color: Ts.ink,
+                fontWeight: 700, lineHeight: 1, letterSpacing: '-0.02em' }}>{s.value}</div>
+              <div style={{ fontFamily: Ts.sans, fontSize: 9, color: Ts.inkFaint,
+                textTransform: 'uppercase', letterSpacing: '0.16em', marginTop: 5 }}>{s.label}</div>
+            </div>
+          ))}
         </div>
 
         {/* Completed Sessions List */}
@@ -228,36 +544,39 @@ export default function Planning() {
             </CardHeader>
             <CardContent className="space-y-2">
               {completedSessions.map((session) => (
-                <div
-                  key={session.id}
-                  className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={cn('w-2 h-2 rounded-full', sessionTypeColors[session.session_type])} />
-                    <div>
-                      <div className="text-sm font-medium">
-                        {sessionTypeLabels[session.session_type]}
+                (() => {
+                  const { option } = getPlannedSessionMeta(session.session_type, session.notes);
+                  return (
+                    <div
+                      key={session.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn('w-2 h-2 rounded-full', option.colorClass)} />
+                        <div>
+                          <div className="text-sm font-medium">{option.label}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {format(parseISO(session.date), "d 'de' MMMM", { locale: es })}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {format(new Date(session.date), "d 'de' MMMM", { locale: es })}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {session.distance_km && (
+                          <span className="flex items-center gap-1">
+                            <Route className="h-3 w-3" />
+                            {session.distance_km} km
+                          </span>
+                        )}
+                        {session.time_min && (
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {session.time_min} min
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {session.distance_km && (
-                      <span className="flex items-center gap-1">
-                        <Route className="h-3 w-3" />
-                        {session.distance_km} km
-                      </span>
-                    )}
-                    {session.time_min && (
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {session.time_min} min
-                      </span>
-                    )}
-                  </div>
-                </div>
+                  );
+                })()
               ))}
             </CardContent>
           </Card>
@@ -290,6 +609,7 @@ export default function Planning() {
                   const dateStr = format(date, 'yyyy-MM-dd');
                   const sessionData = datesWithSessions[dateStr];
                   const isSelected = isSameDay(date, selectedDate);
+                  const hasLoggedSession = datesWithLoggedSessions.has(dateStr);
                   
                   return (
                     <button
@@ -298,18 +618,27 @@ export default function Planning() {
                       className={cn(
                         'relative w-full h-10 flex flex-col items-center justify-center rounded-md transition-colors',
                         isSelected && 'bg-primary text-primary-foreground',
+                        hasLoggedSession && !isSelected && 'ring-1 ring-emerald-500/40 ring-inset',
                         !isSelected && 'hover:bg-accent'
                       )}
                     >
+                      {hasLoggedSession && (
+                        <span
+                          className={cn(
+                            'absolute right-1 top-1 h-1.5 w-1.5 rounded-full',
+                            isSelected ? 'bg-primary-foreground/80' : 'bg-emerald-500',
+                          )}
+                        />
+                      )}
                       <span>{date.getDate()}</span>
                       {sessionData && (
                         <div className="absolute bottom-1 flex gap-0.5">
-                          {sessionData.types.slice(0, 3).map((type, i) => (
+                          {sessionData.focuses.slice(0, 3).map((focus, i) => (
                             <div
                               key={i}
                               className={cn(
                                 'w-1.5 h-1.5 rounded-full',
-                                sessionTypeColors[type],
+                                planningOptions[focus].colorClass,
                                 sessionData.completed && 'opacity-50'
                               )}
                             />
@@ -321,8 +650,136 @@ export default function Planning() {
                 },
               }}
             />
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Sesión registrada
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/70" />
+                Puntos inferiores = planificadas
+              </span>
+            </div>
           </CardContent>
         </Card>
+
+        {/* Training Dashboard */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Carga y métricas</h2>
+            <p className="text-sm text-muted-foreground">
+              Resumen real de esta semana para planificar la siguiente con contexto
+            </p>
+          </div>
+
+          {loggedSessionsLoading ? (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {[1, 2, 3, 4].map((item) => (
+                <Card key={item} className="card-elevated animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="h-20 rounded bg-muted" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : loggedSessions.length === 0 ? (
+            <Card className="card-elevated">
+              <CardContent className="p-6 text-center text-muted-foreground">
+                <Activity className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <p>Todavía no hay sesiones registradas para calcular carga ni métricas.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <Card className="card-elevated">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Esta semana
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {trainingSummary.sessionsThisWeek.length}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {trainingSummary.weeklyMinutes} min acumulados
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-elevated">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <TrendingUp className="h-4 w-4 text-amber-500" />
+                      Carga 7d
+                    </div>
+                    <div className="text-2xl font-bold">
+                      {Math.round(trainingSummary.acuteLoad)}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {trainingSummary.avgRpe > 0
+                        ? `RPE medio ${trainingSummary.avgRpe.toFixed(1)}`
+                        : 'Sin RPE registrado'}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-elevated">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Footprints className="h-4 w-4 text-cyan-500" />
+                      Running
+                    </div>
+                    <div className="text-2xl font-bold text-cyan-500">
+                      {trainingSummary.runningKm.toFixed(1)} km
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {Math.round(trainingSummary.runningGoalProgress)}% de {weeklyRunningGoal} km
+                      {trainingSummary.runningElevation > 0 &&
+                        ` · ${Math.round(trainingSummary.runningElevation)} m D+`}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-elevated">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Bike className="h-4 w-4 text-sky-500" />
+                      Bici
+                    </div>
+                    <div className="text-2xl font-bold text-sky-500">
+                      {trainingSummary.bikeKm.toFixed(1)} km
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {trainingSummary.bikeSessions} sesión
+                      {trainingSummary.bikeSessions === 1 ? '' : 'es'}
+                      {trainingSummary.bikeElevation > 0 &&
+                        ` · ${Math.round(trainingSummary.bikeElevation)} m D+`}
+                    </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="card-elevated">
+                  <CardContent className="p-4">
+                    <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Mountain className="h-4 w-4 text-orange-500" />
+                      Escalada
+                    </div>
+                    <div className="text-2xl font-bold text-orange-500">
+                      {trainingSummary.climbSends}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {trainingSummary.climbAttempts} intentos en {trainingSummary.climbSessions}{' '}
+                      sesiones
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <TrainingLoadACWR sessions={loggedSessions} />
+            </>
+          )}
+        </div>
 
         {/* Selected Date Sessions */}
         <div className="space-y-4">
@@ -345,24 +802,70 @@ export default function Planning() {
                   <div className="space-y-2">
                     <Label>Tipo de sesión</Label>
                     <Select
-                      value={newSession.session_type}
-                      onValueChange={(v) => setNewSession({ ...newSession, session_type: v as SessionType })}
+                      value={newSession.focus}
+                      onValueChange={(v) => setNewSession({ ...newSession, focus: v as PlannedFocus })}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(sessionTypeLabels).map(([value, label]) => (
-                          <SelectItem key={value} value={value}>
-                            {label}
+                        {planningOrder.map((focus) => (
+                          <SelectItem key={focus} value={focus}>
+                            {planningOptions[focus].label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {planningOptions[newSession.focus].description}
+                    </p>
                   </div>
-                  
-                  {/* Running specific fields */}
-                  {newSession.session_type === 'running' && (
+
+                  {planningOptions[newSession.focus].showGym && (
+                    <div className="space-y-2">
+                      <Label>Rocódromo o lugar</Label>
+                      <Select
+                        value={newSession.gym_id || 'none'}
+                        onValueChange={(value) =>
+                          setNewSession({ ...newSession, gym_id: value === 'none' ? '' : value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sin ubicación" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sin ubicación</SelectItem>
+                          {gyms.map((gym) => (
+                            <SelectItem key={gym.id} value={gym.id}>
+                              {gym.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {planningOptions[newSession.focus].showTime && (
+                    <div className="space-y-2">
+                      <Label>
+                        {newSession.focus === 'running' || newSession.focus === 'bike'
+                          ? 'Tiempo (min)'
+                          : 'Duración estimada (min)'}
+                      </Label>
+                      <Input
+                        type="number"
+                        placeholder={
+                          newSession.focus === 'running' || newSession.focus === 'bike'
+                            ? '60'
+                            : '90'
+                        }
+                        value={newSession.time_min}
+                        onChange={(e) => setNewSession({ ...newSession, time_min: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {planningOptions[newSession.focus].showDistance && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Distancia (km)</Label>
@@ -374,24 +877,15 @@ export default function Planning() {
                           onChange={(e) => setNewSession({ ...newSession, distance_km: e.target.value })}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Tiempo (min)</Label>
-                        <Input
-                          type="number"
-                          placeholder="60"
-                          value={newSession.time_min}
-                          onChange={(e) => setNewSession({ ...newSession, time_min: e.target.value })}
-                        />
-                      </div>
                     </div>
                   )}
                   
                   <div className="space-y-2">
-                    <Label>Notas de la entrenadora</Label>
+                    <Label>Plan de la sesión</Label>
                     <Textarea
                       value={newSession.trainer_notes}
                       onChange={(e) => setNewSession({ ...newSession, trainer_notes: e.target.value })}
-                      placeholder="Instrucciones del entrenamiento..."
+                      placeholder="Objetivo, bloques, series, repeticiones, ritmo o descansos..."
                       rows={3}
                     />
                   </div>
@@ -427,100 +921,180 @@ export default function Planning() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {selectedDateSessions.map((session) => (
-                <Card 
-                  key={session.id} 
-                  className={cn(
-                    'card-elevated transition-opacity',
-                    session.completed && 'opacity-60'
-                  )}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge 
-                            className={cn(
-                              'text-white',
-                              sessionTypeColors[session.session_type]
-                            )}
-                          >
-                            {sessionTypeLabels[session.session_type]}
-                          </Badge>
-                          {session.completed && (
-                            <Badge variant="secondary">
-                              <Check className="h-3 w-3 mr-1" />
-                              Completada
+              {selectedDateSessions.map((session) => {
+                const { notes, option, focus } = getPlannedSessionMeta(
+                  session.session_type,
+                  session.notes,
+                );
+
+                return (
+                  <Card
+                    key={session.id}
+                    className={cn(
+                      'card-elevated transition-opacity',
+                      session.completed && 'opacity-60'
+                    )}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge className={cn('text-white gap-1', option.colorClass)}>
+                              {planningIcons[focus]}
+                              {option.label}
                             </Badge>
+                            {session.completed && (
+                              <Badge variant="secondary">
+                                <Check className="h-3 w-3 mr-1" />
+                                Completada
+                              </Badge>
+                            )}
+                          </div>
+
+                          {session.trainer_notes && (
+                            <div className="mb-2">
+                              <p className="text-xs text-muted-foreground font-medium mb-1">
+                                <Dumbbell className="h-3 w-3 inline mr-1" />
+                                Plan:
+                              </p>
+                              <p className="text-sm">{session.trainer_notes}</p>
+                            </div>
+                          )}
+
+                          {(session.distance_km || session.time_min || session.gyms?.name) && (
+                            <div className="flex flex-wrap gap-3 mb-2 text-sm">
+                              {session.gyms?.name && (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <MapPin className="h-3 w-3" />
+                                  {session.gyms.name}
+                                </span>
+                              )}
+                              {session.distance_km && (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Route className="h-3 w-3" />
+                                  {session.distance_km} km
+                                </span>
+                              )}
+                              {session.time_min && (
+                                <span className="flex items-center gap-1 text-muted-foreground">
+                                  <Clock className="h-3 w-3" />
+                                  {session.time_min} min
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {notes && (
+                            <p className="text-sm text-muted-foreground">{notes}</p>
                           )}
                         </div>
-                        
-                        {session.trainer_notes && (
-                          <div className="mb-2">
-                            <p className="text-xs text-muted-foreground font-medium mb-1">
-                              <Dumbbell className="h-3 w-3 inline mr-1" />
-                              Entrenadora:
-                            </p>
-                            <p className="text-sm">{session.trainer_notes}</p>
-                          </div>
-                        )}
-                        
-                        {/* Running info */}
-                        {session.session_type === 'running' && (session.distance_km || session.time_min) && (
-                          <div className="flex gap-3 mb-2 text-sm">
-                            {session.distance_km && (
-                              <span className="flex items-center gap-1 text-muted-foreground">
-                                <MapPin className="h-3 w-3" />
-                                {session.distance_km} km
-                              </span>
-                            )}
-                            {session.time_min && (
-                              <span className="flex items-center gap-1 text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                {session.time_min} min
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        
-                        {session.notes && (
-                          <p className="text-sm text-muted-foreground">{session.notes}</p>
-                        )}
+
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => setEditingSession(session)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant={session.completed ? 'secondary' : 'default'}
+                            className="h-8 w-8"
+                            onClick={() =>
+                              toggleCompletedMutation.mutate({
+                                id: session.id,
+                                completed: !session.completed,
+                              })
+                            }
+                          >
+                            <Check className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => deleteMutation.mutate(session.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8"
-                          onClick={() => setEditingSession(session)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant={session.completed ? 'secondary' : 'default'}
-                          className="h-8 w-8"
-                          onClick={() => toggleCompletedMutation.mutate({
-                            id: session.id, 
-                            completed: !session.completed 
-                          })}
-                        >
-                          <Check className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(session.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Logged Sessions Context */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Sesiones anteriores</h2>
+            <p className="text-sm text-muted-foreground">
+              Historial real para ajustar la semana según lo que ya vienes cargando
+            </p>
+          </div>
+
+          {loggedSessionsLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <Card key={item} className="card-elevated animate-pulse">
+                  <CardContent className="p-4">
+                    <div className="h-16 rounded bg-muted" />
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          ) : loggedSessions.length === 0 ? (
+            <Card className="card-elevated">
+              <CardContent className="p-6 text-center text-muted-foreground">
+                <CalendarIcon className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                <p>Cuando registres sesiones, aquí verás tu histórico reciente.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-5">
+              {selectedDateLoggedSessions.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                      Registradas en esta fecha
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                      {selectedDateLoggedSessions.length} sesión
+                      {selectedDateLoggedSessions.length > 1 ? 'es' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {selectedDateLoggedSessions.map((session) => renderLoggedSessionCard(session))}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                    Antes del {format(selectedDate, "d 'de' MMMM", { locale: es })}
+                  </h3>
+                  <span className="text-xs text-muted-foreground">Últimas 6</span>
+                </div>
+
+                {previousLoggedSessions.length === 0 ? (
+                  <Card className="card-elevated">
+                    <CardContent className="p-6 text-center text-muted-foreground">
+                      <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                      <p>No hay sesiones previas a la fecha seleccionada.</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {previousLoggedSessions.map((session) => renderLoggedSessionCard(session))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

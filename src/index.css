@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,43 +6,39 @@
 
 @layer base {
   :root {
-    /* ClimbTracker Dark Athletic Theme */
-    --background: 222 47% 8%;
-    --foreground: 210 40% 98%;
+    /* Ascend — Quiet Luxury Athletic */
+    --background: 0 0% 2%;
+    --foreground: 40 6% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 5%;
+    --card-foreground: 40 6% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 40 6% 98%;
 
-    /* Teal/Cyan Primary - Mountain/Chalk vibes */
-    --primary: 173 80% 45%;
-    --primary-foreground: 222 47% 8%;
+    /* Signal red accent */
+    --primary: 10 78% 50%;
+    --primary-foreground: 40 6% 98%;
 
-    /* Secondary - Muted slate */
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 40 6% 98%;
 
-    /* Muted backgrounds */
-    --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 8%;
+    --muted-foreground: 40 4% 55%;
 
-    /* Accent - Energetic Orange for sends */
-    --accent: 25 95% 53%;
-    --accent-foreground: 222 47% 8%;
+    --accent: 10 78% 50%;
+    --accent-foreground: 40 6% 98%;
 
-    /* Destructive */
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 40 6% 98%;
 
-    --border: 217 33% 20%;
-    --input: 217 33% 20%;
-    --ring: 173 80% 45%;
+    --border: 0 0% 12%;
+    --input: 0 0% 12%;
+    --ring: 10 78% 50%;
 
-    --radius: 0.75rem;
+    --radius: 0.25rem;
 
-    /* Custom colors */
+    /* Custom */
     --success: 142 76% 45%;
     --warning: 45 93% 47%;
     --info: 199 89% 48%;
@@ -51,30 +47,36 @@
     --grade-beginner: 142 76% 45%;
     --grade-intermediate: 45 93% 47%;
     --grade-advanced: 25 95% 53%;
-    --grade-expert: 0 84% 60%;
+    --grade-expert: 10 78% 50%;
 
-    /* Sidebar */
-    --sidebar-background: 222 47% 6%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 173 80% 45%;
-    --sidebar-primary-foreground: 222 47% 8%;
-    --sidebar-accent: 217 33% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 173 80% 45%;
+    /* Sidebar — same deep black */
+    --sidebar-background: 0 0% 2%;
+    --sidebar-foreground: 40 6% 98%;
+    --sidebar-primary: 10 78% 50%;
+    --sidebar-primary-foreground: 40 6% 98%;
+    --sidebar-accent: 0 0% 8%;
+    --sidebar-accent-foreground: 40 6% 98%;
+    --sidebar-border: 0 0% 10%;
+    --sidebar-ring: 10 78% 50%;
 
-    /* Gradient tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(173 80% 45%), hsl(173 80% 35%));
-    --gradient-accent: linear-gradient(135deg, hsl(25 95% 53%), hsl(25 95% 43%));
-    --gradient-card: linear-gradient(145deg, hsl(222 47% 12%), hsl(222 47% 9%));
-    --gradient-hero: linear-gradient(180deg, hsl(222 47% 10%) 0%, hsl(222 47% 6%) 100%);
+    /* Design tokens */
+    --ink: rgba(250,250,249,1);
+    --ink-muted: rgba(250,250,249,0.62);
+    --ink-faint: rgba(250,250,249,0.38);
+    --ink-dim: rgba(250,250,249,0.16);
+    --rule: rgba(250,250,249,0.09);
+    --rule-strong: rgba(250,250,249,0.18);
+    --signal: #E23A1F;
+    --signal-dim: rgba(226,58,31,0.18);
+
+    /* Gradients */
+    --gradient-card: linear-gradient(145deg, hsl(0 0% 6%), hsl(0 0% 3%));
+    --gradient-hero: linear-gradient(180deg, rgba(5,5,5,0.2) 0%, rgba(5,5,5,0.75) 82%, #050505 100%);
 
     /* Shadows */
-    --shadow-glow: 0 0 40px hsl(173 80% 45% / 0.2);
-    --shadow-card: 0 4px 24px hsl(222 47% 4% / 0.4);
-    --shadow-button: 0 4px 16px hsl(173 80% 45% / 0.3);
+    --shadow-card: 0 4px 24px rgba(0,0,0,0.5);
+    --shadow-button: 0 8px 24px rgba(0,0,0,0.5);
 
-    /* Animation */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 }
@@ -86,50 +88,61 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Urbanist', system-ui, sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold tracking-tight;
+    font-family: 'Urbanist', system-ui, sans-serif;
   }
 
   .font-display {
-    font-family: 'Bebas Neue', sans-serif;
-    letter-spacing: 0.05em;
+    font-family: 'Urbanist', system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    text-transform: uppercase;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
   }
 }
 
 @layer utilities {
   .text-gradient-primary {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(173 80% 55%), hsl(173 80% 40%));
+    background-image: linear-gradient(135deg, hsl(10 78% 60%), hsl(10 78% 45%));
   }
 
   .text-gradient-accent {
     @apply bg-clip-text text-transparent;
-    background-image: linear-gradient(135deg, hsl(25 95% 60%), hsl(25 95% 48%));
+    background-image: linear-gradient(135deg, hsl(10 78% 60%), hsl(10 78% 45%));
   }
 
   .bg-gradient-card {
-    background: linear-gradient(145deg, hsl(222 47% 12%), hsl(222 47% 9%));
+    background: linear-gradient(145deg, hsl(0 0% 6%), hsl(0 0% 3%));
   }
 
   .bg-gradient-hero {
-    background: linear-gradient(180deg, hsl(222 47% 10%) 0%, hsl(222 47% 6%) 100%);
+    background: linear-gradient(180deg, rgba(5,5,5,0.2) 0%, rgba(5,5,5,0.75) 82%, #050505 100%);
   }
 
   .glow-primary {
-    box-shadow: 0 0 40px hsl(173 80% 45% / 0.25);
+    box-shadow: 0 0 40px rgba(226,58,31,0.2);
   }
 
   .glow-accent {
-    box-shadow: 0 0 40px hsl(25 95% 53% / 0.25);
+    box-shadow: 0 0 40px rgba(226,58,31,0.2);
   }
 
   .card-elevated {
-    @apply bg-card border border-border rounded-xl;
-    box-shadow: 0 4px 24px hsl(222 47% 4% / 0.4);
+    @apply bg-card border border-border rounded-sm;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5);
   }
+
+  /* Hairline rule */
+  .rule { border-color: var(--rule); }
+  .rule-strong { border-color: var(--rule-strong); }
 
   /* Grade band colors */
   .grade-white { @apply bg-white text-gray-900; }
