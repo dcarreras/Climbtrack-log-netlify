@@ -229,8 +229,7 @@ export default function Home() {
         <div style={{ position: 'relative', height: 220, overflow: 'hidden' }}>
           <div style={{
             position: 'absolute', inset: 0,
-            background: 'linear-gradient(160deg, #1a1a1a 0%, #0a0a0a 50%, #050505 100%)',
-            backgroundImage: 'url(/pedriza-hero.jpg)',
+            backgroundImage: 'url(/cochamo-bg.jpg)',
             backgroundSize: 'cover', backgroundPosition: 'center 40%',
             filter: 'grayscale(1) contrast(1.05) brightness(0.6)',
           }} />
