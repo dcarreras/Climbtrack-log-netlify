@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { Bike, Cable, Dumbbell, Footprints, Layers3, Mountain } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import AppLayout from '@/components/layout/AppLayout';
@@ -17,6 +18,26 @@ type SessionWithRelations = SessionData & {
 
 const PERIOD_DAYS: Record<TimePeriod, number> = { '7d': 7, '4w': 28, '12w': 84 };
 const CLIMB_TYPES = new Set(['boulder', 'rope', 'hybrid']);
+const COMBINED_LOAD_WEEKS = 12;
+
+const SESSION_ICON_CONFIG: Record<
+  string,
+  { accent: string; Icon: typeof Mountain; label: string }
+> = {
+  boulder: { Icon: Mountain, label: 'Bloque', accent: '#F5F5F4' },
+  rope: { Icon: Cable, label: 'Vías', accent: 'rgba(245,245,244,0.72)' },
+  hybrid: { Icon: Layers3, label: 'Mixta', accent: 'rgba(245,245,244,0.56)' },
+  running: { Icon: Footprints, label: 'Running', accent: '#FAFAF9' },
+  bike: { Icon: Bike, label: 'Bici', accent: 'rgba(245,245,244,0.72)' },
+  training: { Icon: Dumbbell, label: 'Fuerza', accent: 'rgba(245,245,244,0.56)' },
+};
+
+const COMBINED_LOAD_COLORS = {
+  bike: 'rgba(245,245,244,0.26)',
+  climb: '#F5F5F4',
+  running: 'rgba(245,245,244,0.62)',
+  strength: 'rgba(245,245,244,0.42)',
+};
 
 function isHighClimbLoad(s: SessionWithRelations) {
   return (s.climbs?.reduce((t, c) => t + (c.attempts || 1), 0) || 0) >= 18
@@ -79,26 +100,33 @@ function StatBlock({ value, unit, label }: { value: string | number; unit?: stri
   );
 }
 
+function getCombinedLoadBucket(sessionType: string) {
+  if (CLIMB_TYPES.has(sessionType)) return 'climb';
+  if (sessionType === 'running') return 'running';
+  if (sessionType === 'bike') return 'bike';
+  if (sessionType === 'training') return 'strength';
+  return 'other';
+}
+
 function SessionRow({ session }: { session: SessionWithRelations }) {
   const isClimb = CLIMB_TYPES.has(session.session_type);
   const isRun = session.session_type === 'running';
+  const isBike = session.session_type === 'bike';
   const sends = session.climbs?.filter(c => c.sent).length || 0;
   const attempts = session.climbs?.length || 0;
-
-  const typeLabel: Record<string, string> = {
-    boulder: 'B', rope: 'C', hybrid: 'H', running: 'R', hangboard: 'F', bike: 'B',
-  };
-  const glyph = typeLabel[session.session_type] || '·';
+  const iconConfig = SESSION_ICON_CONFIG[session.session_type] || SESSION_ICON_CONFIG.training;
+  const SessionIcon = iconConfig.Icon;
 
   return (
     <Link to={`/sessions/${session.id}`} style={{ textDecoration: 'none' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14,
         padding: '16px 0', borderBottom: `1px solid ${T.rule}`, cursor: 'pointer' }}>
         <div style={{ width: 32, height: 32, borderRadius: '50%',
-          background: T.ink, color: T.bg,
+          background: 'rgba(250,250,249,0.04)', color: iconConfig.accent,
+          border: `1px solid ${T.ruleStrong}`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: T.sans, fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
-          {glyph}
+          flexShrink: 0 }}>
+          <SessionIcon style={{ width: 14, height: 14 }} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: T.sans, fontSize: 9, color: T.inkFaint,
@@ -112,6 +140,10 @@ function SessionRow({ session }: { session: SessionWithRelations }) {
           <div style={{ fontFamily: T.sans, fontSize: 15, color: T.ink,
             fontWeight: 500, letterSpacing: '-0.01em' }}>
             {session.gyms?.name || session.session_type}
+          </div>
+          <div style={{ fontFamily: T.sans, fontSize: 11, color: T.inkFaint,
+            marginTop: 4, letterSpacing: '0.02em' }}>
+            {iconConfig.label}
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -138,7 +170,18 @@ function SessionRow({ session }: { session: SessionWithRelations }) {
               </div>
             </>
           )}
-          {!isClimb && !isRun && (
+          {isBike && (
+            <>
+              <div style={{ fontFamily: T.sans, fontSize: 20, color: T.ink,
+                fontWeight: 700, lineHeight: 1 }}>
+                {Number(session.distance_km || 0).toFixed(1)}<span style={{ color: T.inkFaint, fontSize: 11 }}> km</span>
+              </div>
+              <div style={{ fontFamily: T.mono, fontSize: 9, color: T.inkFaint, marginTop: 3 }}>
+                {Math.round(Number(session.elevation_gain_m) || 0)} m D+
+              </div>
+            </>
+          )}
+          {!isClimb && !isRun && !isBike && (
             <div style={{ fontFamily: T.mono, fontSize: 13, color: T.inkMuted }}>
               {session.duration_min || session.time_min || 0} min
             </div>
@@ -171,7 +214,12 @@ export default function Home() {
     queryKey: ['sessions', user?.id],
     queryFn: async () => {
       const [sessionsResult, stravaResult] = await Promise.all([
-        supabase.from('sessions').select('*, gyms(name), climbs(*)').eq('user_id', user!.id).order('date', { ascending: false }),
+        supabase
+          .from('sessions')
+          .select('*, gyms(name), climbs(*)')
+          .eq('user_id', user!.id)
+          .eq('status', 'completed')
+          .order('date', { ascending: false }),
         supabase.from('strava_activities').select('synced_to_session_id').eq('user_id', user!.id).not('synced_to_session_id', 'is', null),
       ]);
       if (sessionsResult.error) throw sessionsResult.error;
@@ -192,11 +240,16 @@ export default function Home() {
     const filtered = sessions.filter(s => new Date(s.date) >= cutoff);
     const climbSessions = filtered.filter(s => CLIMB_TYPES.has(s.session_type));
     const runningSessions = filtered.filter(s => s.session_type === 'running');
+    const bikeSessions = filtered.filter(s => s.session_type === 'bike');
+    const strengthSessions = filtered.filter(s => s.session_type === 'training');
     const climbs = climbSessions.flatMap(s => s.climbs || []);
     const climbSends = climbs.filter(c => c.sent).length;
     const climbAttempts = climbs.reduce((t, c) => t + (c.attempts || 1), 0);
     const runningKm = runningSessions.reduce((t, s) => t + (Number(s.distance_km) || 0), 0);
     const runningMinutes = runningSessions.reduce((t, s) => t + (s.duration_min || s.time_min || 0), 0);
+    const bikeKm = bikeSessions.reduce((t, s) => t + (Number(s.distance_km) || 0), 0);
+    const bikeMinutes = bikeSessions.reduce((t, s) => t + (s.duration_min || s.time_min || 0), 0);
+    const strengthMinutes = strengthSessions.reduce((t, s) => t + (s.duration_min || s.time_min || 0), 0);
     const totalMinutes = filtered.reduce((t, s) => t + (s.duration_min || s.time_min || 0), 0);
 
     const highClimb = climbSessions.filter(isHighClimbLoad);
@@ -214,9 +267,67 @@ export default function Home() {
       interferenceMessage = 'La carga conjunta ya es relevante.';
     }
 
-    return { climbSends, climbAttempts, runningKm, runningMinutes, totalMinutes,
+    return { climbSends, climbAttempts, runningKm, runningMinutes, bikeKm, bikeMinutes,
+      strengthMinutes, totalMinutes,
       totalSessions: filtered.length, interferenceLevel, interferenceMessage };
   }, [periodDays, sessions]);
+
+  const combinedLoad = useMemo(() => {
+    const weeks = Array.from({ length: COMBINED_LOAD_WEEKS }, (_, index) => {
+      const offset = COMBINED_LOAD_WEEKS - index - 1;
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1));
+      weekStart.setHours(0, 0, 0, 0);
+      weekStart.setDate(weekStart.getDate() - offset * 7);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      weekEnd.setHours(23, 59, 59, 999);
+
+      const weekSessions = sessions.filter((session) => {
+        const sessionDate = new Date(session.date);
+        return sessionDate >= weekStart && sessionDate <= weekEnd;
+      });
+
+      const buckets = {
+        bike: 0,
+        climb: 0,
+        running: 0,
+        strength: 0,
+      };
+
+      weekSessions.forEach((session) => {
+        const bucket = getCombinedLoadBucket(session.session_type);
+        if (bucket === 'other') return;
+        buckets[bucket] += session.duration_min || session.time_min || 0;
+      });
+
+      const total = buckets.climb + buckets.running + buckets.bike + buckets.strength;
+
+      return {
+        ...buckets,
+        isCurrent: index === COMBINED_LOAD_WEEKS - 1,
+        label: `W${index + 1}`,
+        total,
+      };
+    });
+
+    const maxTotal = Math.max(...weeks.map((week) => week.total), 1);
+    const totals = weeks.reduce(
+      (accumulator, week) => ({
+        bike: accumulator.bike + week.bike,
+        climb: accumulator.climb + week.climb,
+        running: accumulator.running + week.running,
+        strength: accumulator.strength + week.strength,
+      }),
+      { bike: 0, climb: 0, running: 0, strength: 0 },
+    );
+
+    return {
+      maxTotal,
+      totals,
+      weeks,
+    };
+  }, [sessions]);
 
   const today = format(new Date(), 'dd·MM·yy', { locale: es });
   const todayDay = format(new Date(), 'EEEE', { locale: es });
@@ -299,21 +410,33 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Split stats — Escalada / Running */}
+        {/* Volume */}
         <div style={{ padding: '32px 20px 0' }}>
           <Kicker num={1}>Volumen · {timePeriod}</Kicker>
-          <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28,
-            padding: '4px 0 24px', borderBottom: `1px solid ${T.rule}` }}>
-            <div style={{ borderRight: `1px solid ${T.rule}`, paddingRight: 20 }}>
+          <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr',
+            borderTop: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }}>
+            <div style={{ padding: '20px 16px', borderRight: `1px solid ${T.rule}`, borderBottom: `1px solid ${T.rule}` }}>
               <StatBlock value={summary.climbSends} unit="tops" label="Escalada" />
               <div style={{ marginTop: 10, fontFamily: T.mono, fontSize: 10, color: T.inkFaint }}>
                 / {summary.climbAttempts} intentos
               </div>
             </div>
-            <div>
+            <div style={{ padding: '20px 16px', borderBottom: `1px solid ${T.rule}` }}>
               <StatBlock value={summary.runningKm.toFixed(1)} unit="km" label="Running" />
               <div style={{ marginTop: 10, fontFamily: T.mono, fontSize: 10, color: T.inkFaint }}>
                 / {summary.runningMinutes} min
+              </div>
+            </div>
+            <div style={{ padding: '20px 16px', borderRight: `1px solid ${T.rule}` }}>
+              <StatBlock value={summary.bikeKm.toFixed(1)} unit="km" label="Bici" />
+              <div style={{ marginTop: 10, fontFamily: T.mono, fontSize: 10, color: T.inkFaint }}>
+                / {summary.bikeMinutes} min
+              </div>
+            </div>
+            <div style={{ padding: '20px 16px' }}>
+              <StatBlock value={Math.round(summary.strengthMinutes)} unit="min" label="Fuerza" />
+              <div style={{ marginTop: 10, fontFamily: T.mono, fontSize: 10, color: T.inkFaint }}>
+                / carga complementaria
               </div>
             </div>
           </div>
@@ -351,10 +474,105 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Combined load */}
+        <div style={{ padding: '32px 20px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <Kicker num={4}>Carga combinada · {COMBINED_LOAD_WEEKS} semanas</Kicker>
+            <div style={{ fontFamily: T.mono, fontSize: 10, color: T.inkFaint }}>
+              min / semana
+            </div>
+          </div>
+
+          <div style={{ marginTop: 18, borderTop: `1px solid ${T.rule}`, paddingTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 10, minHeight: 176 }}>
+              {combinedLoad.weeks.map((week) => {
+                const climbHeight = week.total > 0 ? (week.climb / combinedLoad.maxTotal) * 132 : 0;
+                const runningHeight = week.total > 0 ? (week.running / combinedLoad.maxTotal) * 132 : 0;
+                const bikeHeight = week.total > 0 ? (week.bike / combinedLoad.maxTotal) * 132 : 0;
+                const strengthHeight = week.total > 0 ? (week.strength / combinedLoad.maxTotal) * 132 : 0;
+
+                return (
+                  <div
+                    key={week.label}
+                    style={{
+                      flex: 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                  >
+                    <div style={{
+                      width: '100%',
+                      maxWidth: 24,
+                      minWidth: 16,
+                      height: 136,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'flex-end',
+                      gap: 1,
+                    }}>
+                      <div style={{
+                        height: Math.max(0, strengthHeight),
+                        background: week.isCurrent ? 'rgba(226,58,31,0.36)' : COMBINED_LOAD_COLORS.strength,
+                      }} />
+                      <div style={{
+                        height: Math.max(0, bikeHeight),
+                        background: week.isCurrent ? 'rgba(226,58,31,0.52)' : COMBINED_LOAD_COLORS.bike,
+                      }} />
+                      <div style={{
+                        height: Math.max(0, runningHeight),
+                        background: week.isCurrent ? 'rgba(226,58,31,0.72)' : COMBINED_LOAD_COLORS.running,
+                      }} />
+                      <div style={{
+                        height: Math.max(0, climbHeight),
+                        background: week.isCurrent ? T.accent : COMBINED_LOAD_COLORS.climb,
+                      }} />
+                    </div>
+                    <div style={{
+                      fontFamily: T.mono,
+                      fontSize: 10,
+                      color: week.isCurrent ? T.accent : T.inkFaint,
+                      fontWeight: week.isCurrent ? 700 : 500,
+                      letterSpacing: '0.06em',
+                    }}>
+                      {week.label}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 18 }}>
+              {[
+                { key: 'climb', label: 'Escalada', value: combinedLoad.totals.climb },
+                { key: 'running', label: 'Running', value: combinedLoad.totals.running },
+                { key: 'bike', label: 'Bici', value: combinedLoad.totals.bike },
+                { key: 'strength', label: 'Fuerza', value: combinedLoad.totals.strength },
+              ].map((item) => (
+                <div key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 10,
+                    height: 10,
+                    background: COMBINED_LOAD_COLORS[item.key as keyof typeof COMBINED_LOAD_COLORS],
+                    display: 'inline-block',
+                  }} />
+                  <span style={{ fontFamily: T.sans, fontSize: 11, color: T.ink }}>
+                    {item.label}
+                  </span>
+                  <span style={{ fontFamily: T.mono, fontSize: 11, color: T.inkFaint }}>
+                    {Math.round(item.value)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Sesiones recientes */}
         <div style={{ padding: '32px 20px 0', paddingBottom: 100 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Kicker num={4}>Sesiones recientes</Kicker>
+            <Kicker num={5}>Sesiones recientes</Kicker>
             <Link to="/sessions" style={{
               fontFamily: T.sans, fontSize: 10, color: T.inkMuted,
               letterSpacing: '0.16em', textTransform: 'uppercase',

@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Play, Pause, RotateCcw, Plus, Minus, Timer, BookOpen, Hand, LayoutGrid } from 'lucide-react';
+import { createAudioContext } from '@/lib/audioContext';
 
 interface DensityExercise {
   id: string;
@@ -66,7 +67,7 @@ const useAudioBeep = () => {
 
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = createAudioContext();
     }
     return audioContextRef.current;
   }, []);
@@ -74,6 +75,7 @@ const useAudioBeep = () => {
   const playBeep = useCallback((frequency: number = 800, duration: number = 150, volume: number = 0.5) => {
     try {
       const ctx = getAudioContext();
+      if (!ctx) return;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
@@ -85,7 +87,7 @@ const useAudioBeep = () => {
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + duration / 1000);
-    } catch (e) {
+    } catch {
       console.log('Audio not supported');
     }
   }, [getAudioContext]);

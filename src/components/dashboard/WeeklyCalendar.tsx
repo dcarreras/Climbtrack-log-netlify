@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import { format, startOfWeek, addDays, isSameDay, isToday, isFuture, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarDays, CheckCircle2, Target } from 'lucide-react';
+import { Bike, Cable, Dumbbell, Footprints, Layers3, Mountain, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Session {
@@ -10,13 +9,21 @@ interface Session {
   date: string;
   session_type: string;
   gyms?: { name: string } | null;
-  climbs?: any[];
 }
 
 interface WeeklyCalendarProps {
   sessions: Session[];
   plannedSessions?: { date: string; notes?: string }[];
 }
+
+const sessionIconMap: Record<string, typeof Mountain> = {
+  boulder: Mountain,
+  bike: Bike,
+  hybrid: Layers3,
+  rope: Cable,
+  running: Footprints,
+  training: Dumbbell,
+};
 
 export default function WeeklyCalendar({ sessions, plannedSessions = [] }: WeeklyCalendarProps) {
   const today = new Date();
@@ -44,6 +51,7 @@ export default function WeeklyCalendar({ sessions, plannedSessions = [] }: Weekl
         isFuture: isFuture(date),
         sessions: sessionsOnDay,
         planned: plannedOnDay,
+        primarySession: sessionsOnDay[0] || null,
         hasSession: sessionsOnDay.length > 0,
         hasPlanned: plannedOnDay.length > 0,
       };
@@ -57,85 +65,83 @@ export default function WeeklyCalendar({ sessions, plannedSessions = [] }: Weekl
   }, [weekDays]);
 
   return (
-    <Card className="card-elevated">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-primary" />
-            <span className="text-base">Esta semana</span>
-          </div>
-          <div className="flex items-center gap-3 text-sm font-normal">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="h-4 w-4 text-success" />
-              {weekStats.completed}
-            </span>
-            {weekStats.planned > 0 && (
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <Target className="h-4 w-4" />
-                {weekStats.planned}
-              </span>
-            )}
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-7 gap-1 md:gap-2">
-          {weekDays.map((day) => (
+    <div className="border-y border-white/10 py-4">
+      <div className="mb-4 flex items-center justify-between">
+        <div className="text-[10px] uppercase tracking-[0.2em] text-white/40">
+          Semana actual
+        </div>
+        <div className="flex items-center gap-3 text-[10px] uppercase tracking-[0.16em] text-white/42">
+          <span>{weekStats.completed} completados</span>
+          {weekStats.planned > 0 && <span>{weekStats.planned} pendientes</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 gap-2">
+        {weekDays.map((day) => {
+          const SessionIcon = day.primarySession
+            ? sessionIconMap[day.primarySession.session_type] || Mountain
+            : null;
+
+          return (
             <div
               key={day.dateStr}
               className={cn(
-                "flex flex-col items-center p-2 md:p-3 rounded-lg transition-all",
-                day.isToday && "bg-primary/20 ring-1 ring-primary",
-                !day.isToday && day.hasSession && "bg-success/10",
-                !day.isToday && day.hasPlanned && !day.hasSession && "bg-secondary",
-                !day.isToday && !day.hasSession && !day.hasPlanned && "bg-muted/30"
+                'flex min-h-[110px] flex-col items-center rounded-none border border-transparent px-1 py-2 text-center transition-colors',
+                day.isToday && 'border-white/20 bg-white/[0.03]',
+                !day.isToday && day.hasSession && 'bg-white/[0.02]',
+                !day.isToday && !day.hasSession && day.hasPlanned && 'bg-white/[0.015]',
               )}
             >
-              <span className="text-[10px] md:text-xs text-muted-foreground uppercase">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-white/40">
                 {day.dayName}
               </span>
-              <span className={cn(
-                "text-lg md:text-xl font-bold mt-1",
-                day.isToday && "text-primary",
-                day.hasSession && !day.isToday && "text-success"
-              )}>
+              <span
+                className={cn(
+                  'mt-2 text-2xl font-semibold tracking-[-0.03em] text-white/86',
+                  day.isToday && 'text-white',
+                )}
+              >
                 {day.dayNumber}
               </span>
-              
-              {/* Indicators */}
-              <div className="flex gap-1 mt-1.5">
-                {day.hasSession && (
-                  <div className="h-1.5 w-1.5 rounded-full bg-success" />
-                )}
-                {day.hasPlanned && !day.hasSession && (
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+
+              <div className="mt-4 flex min-h-8 items-center">
+                {day.hasSession && SessionIcon ? (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/18 bg-white text-black">
+                    <SessionIcon className="h-3.5 w-3.5" />
+                  </div>
+                ) : day.hasPlanned ? (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full border border-white/12 bg-transparent text-white/60">
+                    <Target className="h-3.5 w-3.5" />
+                  </div>
+                ) : (
+                  <div className="h-2 w-2 rounded-full bg-white/12" />
                 )}
               </div>
-              
-              {/* Session info on larger screens */}
-              {day.sessions.length > 0 && (
-                <div className="hidden md:block mt-2 text-center">
-                  <span className="text-[10px] text-success capitalize truncate block">
-                    {day.sessions[0].session_type}
-                  </span>
-                </div>
-              )}
+
+              <div className="mt-auto pt-4">
+                <div
+                  className={cn(
+                    'mx-auto h-[2px] w-8 bg-transparent',
+                    day.isToday && 'bg-[#E23A1F]',
+                    !day.isToday && day.hasSession && 'bg-white/16',
+                  )}
+                />
+              </div>
             </div>
-          ))}
-        </div>
-        
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-4 mt-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-success" />
-            Completado
-          </span>
-          <span className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full bg-primary/60" />
-            Planificado
-          </span>
-        </div>
-      </CardContent>
-    </Card>
+          );
+        })}
+      </div>
+
+      <div className="mt-4 flex items-center justify-center gap-4 text-[10px] uppercase tracking-[0.16em] text-white/42">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-white" />
+          Registrado
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-white/20" />
+          Planificado
+        </span>
+      </div>
+    </div>
   );
 }

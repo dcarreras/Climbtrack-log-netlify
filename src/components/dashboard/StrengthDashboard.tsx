@@ -4,6 +4,23 @@ import { SessionData } from '@/utils/metricsUtils';
 
 interface Props { sessions: SessionData[] }
 
+interface TooltipEntry {
+  name?: string | number;
+  value?: string | number;
+}
+
+interface TooltipContentProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
+interface SummaryStat {
+  value: string | number;
+  unit?: string;
+  label: string;
+}
+
 const T = {
   bg: '#050505', bgCard: '#131313', ink: '#FAFAF9',
   inkMuted: 'rgba(250,250,249,0.62)', inkFaint: 'rgba(250,250,249,0.38)',
@@ -74,14 +91,14 @@ export default function StrengthDashboard({ sessions }: Props) {
     }, {} as Record<string, number>),
   }), [strengthSessions]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (!active || !payload?.length) return null;
     return (
       <div style={{ background: T.bgCard, border: `1px solid ${T.rule}`,
         padding: '10px 14px', fontFamily: T.sans, fontSize: 12, color: T.ink }}>
         <div style={{ marginBottom: 6, color: T.inkFaint, fontSize: 10,
           textTransform: 'uppercase', letterSpacing: '0.12em' }}>Sem. {label}</div>
-        {payload.map((e: any, i: number) => (
+        {payload.map((e, i) => (
           <div key={i} style={{ color: T.inkMuted }}>{e.name}: <span style={{ color: T.ink, fontWeight: 600 }}>{e.value}</span></div>
         ))}
       </div>
@@ -102,15 +119,15 @@ export default function StrengthDashboard({ sessions }: Props) {
       {/* Summary strip */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
         border: `1px solid ${T.rule}` }}>
-        {[
+        {([
           { value: totals.sessions, label: 'Sesiones' },
           { value: Math.round(totals.min / 60 * 10) / 10, unit: 'h', label: 'Tiempo total' },
           { value: totals.avgRpe, label: 'RPE medio' },
-        ].map((s, i) => (
+        ] as SummaryStat[]).map((s, i) => (
           <div key={i} style={{ padding: '16px 14px', borderRight: i < 2 ? `1px solid ${T.rule}` : 'none' }}>
             <div style={{ fontFamily: T.sans, fontSize: 28, color: T.ink,
               fontWeight: 700, lineHeight: 1, letterSpacing: '-0.025em' }}>
-              {s.value}<span style={{ fontSize: 13, color: T.inkFaint, fontWeight: 400 }}>{(s as any).unit}</span>
+              {s.value}<span style={{ fontSize: 13, color: T.inkFaint, fontWeight: 400 }}>{s.unit}</span>
             </div>
             <div style={{ fontFamily: T.sans, fontSize: 9, color: T.inkFaint,
               textTransform: 'uppercase', letterSpacing: '0.18em', marginTop: 6 }}>

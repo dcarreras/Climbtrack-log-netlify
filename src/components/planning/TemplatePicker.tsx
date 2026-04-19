@@ -88,7 +88,7 @@ export default function TemplatePicker({ sessionType, onSelect }: Props) {
   if (view === 'new') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <button onClick={() => setView('list')} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: T.inkFaint, fontFamily: T.sans, fontSize: 12,
@@ -137,7 +137,7 @@ export default function TemplatePicker({ sessionType, onSelect }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
         <span style={{ fontFamily: T.sans, fontSize: 10, color: T.inkFaint, textTransform: 'uppercase', letterSpacing: '0.16em' }}>
           Plantillas guardadas
         </span>
@@ -171,7 +171,7 @@ export default function TemplatePicker({ sessionType, onSelect }: Props) {
           {templates.map(tpl => (
             <div key={tpl.id} style={{
               display: 'flex', alignItems: 'center', gap: 8,
-              border: `1px solid ${T.rule}`, padding: '10px 12px',
+              border: `1px solid ${T.rule}`, padding: '10px 12px', flexWrap: 'nowrap',
             }}>
               <button
                 onClick={() => onSelect(tpl.blocks)}

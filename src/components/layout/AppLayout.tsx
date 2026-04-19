@@ -1,9 +1,7 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { BarChart3, CalendarDays, Home, Menu, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { cn } from '@/lib/utils';
-
-const DRAFT_KEY = 'climbtracker.sessionDraft';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -12,235 +10,227 @@ interface AppLayoutProps {
 const mainTabs = [
   {
     href: '/home',
-    label: 'Feed',
-    icon: (active: boolean) => (
-      <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-        <path d="M3 11l9-8 9 8v10a1 1 0 01-1 1h-5v-7h-6v7H4a1 1 0 01-1-1V11z"
-          stroke={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} strokeWidth="1.6" strokeLinejoin="round" />
-      </svg>
-    ),
+    label: 'Home',
+    Icon: Home,
   },
   {
     href: '/planning',
     label: 'Plan',
-    icon: (active: boolean) => (
-      <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="5" width="18" height="16" rx="1.5" stroke={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} strokeWidth="1.6" />
-        <path d="M3 10h18M8 3v4M16 3v4" stroke={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} strokeWidth="1.6" strokeLinecap="round" />
-        <rect x="7" y="13" width="3" height="3" fill={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} />
-      </svg>
-    ),
+    Icon: CalendarDays,
   },
   {
     href: '/sessions/new',
-    label: '',
+    label: 'Nueva sesión',
+    Icon: Plus,
     isAction: true,
-    icon: () => (
-      <svg width={24} height={24} viewBox="0 0 24 24">
-        <path d="M12 5v14M5 12h14" stroke="#050505" strokeWidth="2.2" strokeLinecap="round" />
-      </svg>
-    ),
   },
   {
     href: '/analytics',
     label: 'Stats',
-    icon: (active: boolean) => (
-      <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-        <path d="M4 20V10M10 20V4M16 20v-8M22 20H2"
-          stroke={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    ),
+    Icon: BarChart3,
   },
   {
     href: '/profile',
     label: 'Menú',
-    icon: (active: boolean) => (
-      <svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-        <circle cx="5" cy="6" r="1.5" fill={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} />
-        <circle cx="5" cy="12" r="1.5" fill={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} />
-        <circle cx="5" cy="18" r="1.5" fill={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} />
-        <path d="M10 6h11M10 12h11M10 18h11"
-          stroke={active ? '#FAFAF9' : 'rgba(250,250,249,0.38)'} strokeWidth="1.6" strokeLinecap="round" />
-      </svg>
-    ),
+    Icon: Menu,
   },
-];
+] as const;
 
 const desktopNav = [
-  { href: '/home', label: 'Feed' },
-  { href: '/planning', label: 'Planificación' },
-  { href: '/sessions', label: 'Sesiones' },
-  { href: '/analytics', label: 'Análisis' },
-  { href: '/sessions/new', label: 'Nueva sesión' },
-  { href: '/profile', label: 'Perfil' },
-];
+  { href: '/home', label: 'Home', Icon: Home },
+  { href: '/planning', label: 'Planificación', Icon: CalendarDays },
+  { href: '/analytics', label: 'Stats', Icon: BarChart3 },
+  { href: '/profile', label: 'Menú', Icon: Menu },
+] as const;
+
+const shell = {
+  bg: '#050505',
+  ink: '#FAFAF9',
+  inkMuted: 'rgba(250,250,249,0.62)',
+  inkFaint: 'rgba(250,250,249,0.38)',
+  rule: 'rgba(250,250,249,0.09)',
+  ruleStrong: 'rgba(250,250,249,0.18)',
+  accent: '#E23A1F',
+};
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
-  const [pendingNav, setPendingNav] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
   };
 
-  const isActive = (href: string) =>
-    location.pathname === href ||
-    (href === '/sessions' && location.pathname.startsWith('/sessions') && location.pathname !== '/sessions/new') ||
-    (href === '/analytics' && location.pathname === '/analytics');
-
-  const hasDraft = () => !!localStorage.getItem(DRAFT_KEY);
-
-  const handleNavClick = (href: string, e: React.MouseEvent) => {
-    if (href === '/sessions/new') return;
-    if (location.pathname === '/sessions/new' && hasDraft()) {
-      e.preventDefault();
-      setPendingNav(href);
+  const isActive = (href: string) => {
+    if (href === '/home') return location.pathname === '/home' || location.pathname === '/dashboard';
+    if (href === '/planning') return location.pathname === '/planning';
+    if (href === '/analytics') {
+      return (
+        location.pathname === '/analytics' ||
+        location.pathname.startsWith('/sessions') ||
+        location.pathname.startsWith('/timer')
+      );
     }
-  };
-
-  const handlePause = () => {
-    setPendingNav(null);
-    navigate('/home');
-  };
-
-  const handleDiscard = () => {
-    localStorage.removeItem(DRAFT_KEY);
-    const dest = pendingNav!;
-    setPendingNav(null);
-    navigate(dest);
+    if (href === '/profile') {
+      return location.pathname === '/profile' || location.pathname.startsWith('/library');
+    }
+    if (href === '/sessions/new') return location.pathname === '/sessions/new';
+    return location.pathname === href;
   };
 
   return (
-    <div className="min-h-screen bg-background" style={{ fontFamily: "'Urbanist', system-ui, sans-serif" }}>
-
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-full w-56 flex-col z-50"
-        style={{ background: '#050505', borderRight: '1px solid rgba(250,250,249,0.09)' }}>
-        <div className="p-6 pb-4">
-          <Link to="/home" className="flex items-center gap-2">
-            <span style={{
-              fontFamily: "'Urbanist', sans-serif",
-              fontSize: 18,
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              textTransform: 'uppercase',
-              color: '#FAFAF9',
-            }}>ASCEND</span>
+    <div
+      className="min-h-screen overflow-x-hidden bg-background"
+      style={{ fontFamily: "'Urbanist', system-ui, sans-serif" }}
+    >
+      <aside
+        className="fixed left-0 top-0 z-50 hidden h-full w-64 flex-col md:flex"
+        style={{ background: shell.bg, borderRight: `1px solid ${shell.rule}` }}
+      >
+        <div className="px-6 pb-4 pt-6">
+          <Link to="/home" className="inline-flex flex-col no-underline">
+            <span
+              style={{
+                color: shell.ink,
+                fontSize: 18,
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                textTransform: 'uppercase',
+              }}
+            >
+              ASCEND
+            </span>
+            <span
+              className="mt-2 font-mono text-[9px] uppercase tracking-[0.22em]"
+              style={{ color: shell.inkFaint }}
+            >
+              Climb Tracker
+            </span>
           </Link>
-          <div style={{
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 9,
-            color: 'rgba(250,250,249,0.38)',
-            letterSpacing: '0.2em',
-            textTransform: 'uppercase',
-            marginTop: 4,
-          }}>Climb Tracker</div>
         </div>
 
-        <div style={{ height: 1, background: 'rgba(250,250,249,0.09)', margin: '0 24px' }} />
+        <div className="mx-6 h-px" style={{ background: shell.rule }} />
 
-        <nav className="flex-1 px-4 py-4 space-y-1">
-          {desktopNav.map((item) => {
-            const active = isActive(item.href);
-            return (
-              <Link
-                key={item.href}
-                to={item.href}
-                onClick={(e) => handleNavClick(item.href, e)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '10px 12px',
-                  fontFamily: "'Urbanist', sans-serif",
-                  fontSize: 13,
-                  fontWeight: active ? 600 : 500,
-                  color: active ? '#FAFAF9' : 'rgba(250,250,249,0.55)',
-                  letterSpacing: '0.04em',
-                  textTransform: 'uppercase',
-                  textDecoration: 'none',
-                  borderLeft: active ? '2px solid #E23A1F' : '2px solid transparent',
-                  paddingLeft: active ? 10 : 12,
-                  transition: 'all 0.15s',
-                }}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 px-4 py-5">
+          <div className="space-y-1">
+            {desktopNav.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="flex items-center gap-3 px-3 py-3 no-underline transition-colors"
+                  style={{
+                    borderLeft: active ? `2px solid ${shell.accent}` : '2px solid transparent',
+                    color: active ? shell.ink : shell.inkMuted,
+                    paddingLeft: active ? 10 : 12,
+                  }}
+                >
+                  <item.Icon className="h-4 w-4" />
+                  <span
+                    style={{
+                      fontSize: 13,
+                      fontWeight: active ? 600 : 500,
+                      letterSpacing: '0.06em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {item.label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+
+          <Link
+            to="/sessions/new"
+            className="mt-8 flex items-center justify-between border px-4 py-4 no-underline transition-colors"
+            style={{
+              background: isActive('/sessions/new') ? shell.ink : 'transparent',
+              borderColor: isActive('/sessions/new') ? shell.ink : shell.ruleStrong,
+              color: isActive('/sessions/new') ? shell.bg : shell.ink,
+            }}
+          >
+            <div>
+              <div className="text-[10px] uppercase tracking-[0.2em]" style={{ color: isActive('/sessions/new') ? shell.bg : shell.inkFaint }}>
+                Acción rápida
+              </div>
+              <div className="mt-1 text-base font-semibold tracking-[-0.02em]">Nueva sesión</div>
+            </div>
+            <div
+              className="flex h-10 w-10 items-center justify-center rounded-full"
+              style={{
+                background: isActive('/sessions/new') ? shell.bg : shell.ink,
+                color: isActive('/sessions/new') ? shell.ink : shell.bg,
+              }}
+            >
+              <Plus className="h-5 w-5" />
+            </div>
+          </Link>
         </nav>
 
-        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(250,250,249,0.09)' }}>
+        <div className="border-t px-6 py-5" style={{ borderColor: shell.rule }}>
           <button
             onClick={handleSignOut}
+            className="w-full border px-4 py-3 text-[11px] uppercase tracking-[0.18em]"
             style={{
               background: 'transparent',
-              border: '1px solid rgba(250,250,249,0.18)',
-              color: 'rgba(250,250,249,0.55)',
-              padding: '10px 16px',
-              width: '100%',
-              fontFamily: "'Urbanist', sans-serif",
-              fontSize: 11,
-              fontWeight: 500,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              cursor: 'pointer',
+              borderColor: shell.ruleStrong,
+              color: shell.inkMuted,
             }}
+            type="button"
           >
             Cerrar sesión
           </button>
         </div>
       </aside>
 
-      {/* Mobile Header */}
       <header
-        className="md:hidden fixed top-0 left-0 right-0 h-14 z-50 flex items-center justify-between px-5"
+        className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between px-5 md:hidden"
         style={{
           background: 'rgba(5,5,5,0.92)',
           backdropFilter: 'blur(20px)',
+          borderBottom: `1px solid ${shell.rule}`,
           WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(250,250,249,0.09)',
         }}
       >
-        <Link to="/home" style={{ textDecoration: 'none' }}>
-          <span style={{
-            fontFamily: "'Urbanist', sans-serif",
-            fontSize: 17,
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-            textTransform: 'uppercase',
-            color: '#FAFAF9',
-          }}>ASCEND</span>
+        <Link to="/home" className="no-underline">
+          <span
+            style={{
+              color: shell.ink,
+              fontSize: 17,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              textTransform: 'uppercase',
+            }}
+          >
+            ASCEND
+          </span>
         </Link>
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 9,
-          color: 'rgba(250,250,249,0.38)',
-          letterSpacing: '0.2em',
-          textTransform: 'uppercase',
-        }}>Climb Tracker</div>
+        <span
+          className="font-mono text-[9px] uppercase tracking-[0.2em]"
+          style={{ color: shell.inkFaint }}
+        >
+          Climb Tracker
+        </span>
       </header>
 
-      {/* Main Content */}
-      <main className="md:ml-56 pt-14 md:pt-0 min-h-screen">
-        <div className="pb-24 md:pb-8 max-w-4xl mx-auto">
-          {children}
-        </div>
+      <main className="min-h-screen overflow-x-hidden pt-14 md:ml-64 md:pt-0">
+        <div className="mx-auto w-full max-w-5xl min-w-0 pb-28 md:pb-8">{children}</div>
       </main>
 
-      {/* Mobile Bottom Nav — Strava-style */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex justify-around items-center"
+        className="fixed bottom-0 left-0 right-0 z-50 flex items-end justify-around md:hidden"
         style={{
           background: 'rgba(5,5,5,0.94)',
           backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          borderTop: '1px solid rgba(250,250,249,0.09)',
+          borderTop: `1px solid ${shell.rule}`,
+          height: 78,
           paddingBottom: 'env(safe-area-inset-bottom, 16px)',
-          paddingTop: 10,
-          height: 72,
+          paddingTop: 8,
+          WebkitBackdropFilter: 'blur(24px)',
         }}
       >
         {mainTabs.map((tab) => {
@@ -251,21 +241,25 @@ export default function AppLayout({ children }: AppLayoutProps) {
               <Link
                 key={tab.href}
                 to={tab.href}
-                style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: '50%',
-                  background: '#FAFAF9',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginTop: -8,
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.5), 0 0 0 6px rgba(5,5,5,0.94)',
-                  textDecoration: 'none',
-                  flexShrink: 0,
-                }}
+                className="relative flex shrink-0 flex-col items-center no-underline"
+                style={{ marginTop: -12, width: 72 }}
               >
-                {tab.icon(false)}
+                {active && (
+                  <div
+                    className="absolute -top-1 h-[2px] w-7"
+                    style={{ background: shell.ink }}
+                  />
+                )}
+                <div
+                  className="flex h-14 w-14 items-center justify-center rounded-full"
+                  style={{
+                    background: shell.ink,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5), 0 0 0 6px rgba(5,5,5,0.94)',
+                    color: shell.bg,
+                  }}
+                >
+                  <tab.Icon className="h-6 w-6" strokeWidth={2.2} />
+                </div>
               </Link>
             );
           }
@@ -274,103 +268,33 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <Link
               key={tab.href}
               to={tab.href}
-              onClick={(e) => handleNavClick(tab.href, e)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 4,
-                padding: '4px 8px',
-                position: 'relative',
-                minWidth: 52,
-                textDecoration: 'none',
-              }}
+              className="relative flex min-w-0 flex-1 flex-col items-center gap-1 px-2 no-underline"
             >
               {active && (
-                <div style={{
-                  position: 'absolute',
-                  top: -10,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: 20,
-                  height: 2,
-                  background: '#FAFAF9',
-                }} />
+                <div
+                  className="absolute -top-2 h-[2px] w-5"
+                  style={{ background: shell.ink }}
+                />
               )}
-              {tab.icon(active)}
-              {tab.label && (
-                <span style={{
-                  fontFamily: "'Urbanist', sans-serif",
+              <tab.Icon
+                className="h-[19px] w-[19px]"
+                style={{ color: active ? shell.ink : shell.inkFaint }}
+              />
+              <span
+                style={{
+                  color: active ? shell.ink : shell.inkFaint,
                   fontSize: 9,
-                  color: active ? '#FAFAF9' : 'rgba(250,250,249,0.38)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.14em',
                   fontWeight: active ? 600 : 500,
-                }}>
-                  {tab.label}
-                </span>
-              )}
+                  letterSpacing: '0.14em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                {tab.label}
+              </span>
             </Link>
           );
         })}
       </nav>
-
-      {/* Session guard dialog */}
-      {pendingNav && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 200,
-          background: 'rgba(0,0,0,0.75)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '0 24px',
-        }}>
-          <div style={{
-            background: '#131313',
-            border: '1px solid rgba(250,250,249,0.12)',
-            padding: 28, maxWidth: 360, width: '100%',
-          }}>
-            <div style={{
-              fontFamily: "'Urbanist', sans-serif", fontSize: 17,
-              fontWeight: 700, color: '#FAFAF9', letterSpacing: '-0.01em',
-              textTransform: 'uppercase', marginBottom: 10,
-            }}>
-              Sesión en curso
-            </div>
-            <div style={{
-              fontFamily: "'Urbanist', sans-serif", fontSize: 13,
-              color: 'rgba(250,250,249,0.6)', lineHeight: 1.5, marginBottom: 24,
-            }}>
-              Tienes una sesión sin terminar. ¿Qué quieres hacer?
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <button onClick={handlePause} style={{
-                background: '#FAFAF9', color: '#050505', border: 'none',
-                padding: '12px', cursor: 'pointer',
-                fontFamily: "'Urbanist', sans-serif", fontSize: 11,
-                fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
-              }}>
-                Pausar y retomar después
-              </button>
-              <button onClick={handleDiscard} style={{
-                background: 'transparent', color: '#E23A1F',
-                border: '1px solid rgba(226,58,31,0.4)',
-                padding: '12px', cursor: 'pointer',
-                fontFamily: "'Urbanist', sans-serif", fontSize: 11,
-                fontWeight: 600, letterSpacing: '0.16em', textTransform: 'uppercase',
-              }}>
-                Borrar sesión y salir
-              </button>
-              <button onClick={() => setPendingNav(null)} style={{
-                background: 'transparent', color: 'rgba(250,250,249,0.38)',
-                border: 'none', padding: '10px', cursor: 'pointer',
-                fontFamily: "'Urbanist', sans-serif", fontSize: 11,
-                letterSpacing: '0.12em', textTransform: 'uppercase',
-              }}>
-                Seguir registrando
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { createAudioContext } from '@/lib/audioContext';
 
 interface HangboardProtocol {
   id: string;
@@ -45,7 +46,7 @@ const useAudioBeep = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = createAudioContext();
     }
     return audioContextRef.current;
   }, []);
@@ -53,6 +54,7 @@ const useAudioBeep = () => {
   const playBeep = useCallback((frequency: number = 800, duration: number = 150, volume: number = 0.5) => {
     try {
       const ctx = getAudioContext();
+      if (!ctx) return;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       oscillator.connect(gainNode);
@@ -63,7 +65,7 @@ const useAudioBeep = () => {
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration / 1000);
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + duration / 1000);
-    } catch (e) { console.log('Audio not supported'); }
+    } catch { console.log('Audio not supported'); }
   }, [getAudioContext]);
 
   return {

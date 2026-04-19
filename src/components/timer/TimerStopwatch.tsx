@@ -7,6 +7,7 @@ import { Play, Pause, RotateCcw, Timer, Clock, Plus, Minus, Volume2, VolumeX, Du
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { createAudioContext } from '@/lib/audioContext';
 
 // Web Audio API para generar sonidos (funciona con bluetooth)
 const useAudioBeep = () => {
@@ -14,7 +15,7 @@ const useAudioBeep = () => {
 
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      audioContextRef.current = createAudioContext();
     }
     return audioContextRef.current;
   }, []);
@@ -22,6 +23,7 @@ const useAudioBeep = () => {
   const playBeep = useCallback((frequency: number = 800, duration: number = 150, volume: number = 0.5) => {
     try {
       const ctx = getAudioContext();
+      if (!ctx) return;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
       
@@ -36,7 +38,7 @@ const useAudioBeep = () => {
       
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + duration / 1000);
-    } catch (e) {
+    } catch {
       console.log('Audio not supported');
     }
   }, [getAudioContext]);

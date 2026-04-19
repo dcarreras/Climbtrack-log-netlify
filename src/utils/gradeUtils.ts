@@ -101,10 +101,11 @@ export const gradeToIndex = (
       return vGradeToFrenchIndex(gradeValue || '');
     case 'font':
       return frenchGradeToIndex(gradeValue);
-    case 'yds':
+    case 'yds': {
       // YDS approximate conversion (simplified)
       const ydsNum = parseInt(gradeValue?.replace(/[^\d]/g, '') || '0');
       return Math.max(0, ydsNum - 8);
+    }
     default:
       return frenchGradeToIndex(gradeValue);
   }

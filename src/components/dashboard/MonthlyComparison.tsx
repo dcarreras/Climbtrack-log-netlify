@@ -46,6 +46,18 @@ interface MonthlyRunningData {
   goalAchievedWeeks: number;
 }
 
+interface TooltipEntry {
+  color?: string;
+  name?: string | number;
+  value?: string | number;
+}
+
+interface TooltipContentProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
 export default function MonthlyComparison({ sessions, weeklyKmGoal }: MonthlyComparisonProps) {
   const monthlyClimbData = useMemo(() => {
     const now = new Date();
@@ -149,12 +161,12 @@ export default function MonthlyComparison({ sessions, weeklyKmGoal }: MonthlyCom
   const routeTrend = getTrend(currentMonth?.routeMaxSent || 0, previousMonth?.routeMaxSent || 0);
   const runningTrend = getTrend(currentRunning?.totalKm || 0, previousRunning?.totalKm || 0);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="font-semibold mb-1">{label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }} className="text-sm">
               {entry.name}: {entry.value}
             </p>

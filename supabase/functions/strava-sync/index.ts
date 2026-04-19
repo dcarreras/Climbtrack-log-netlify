@@ -14,6 +14,56 @@ interface StravaConnectionRow {
   expires_at: string;
 }
 
+async function linkMatchingPlannedSession(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  sessionId: string,
+  sessionType: string,
+  dateStr: string,
+): Promise<string | null> {
+  const { data: plannedSession, error: plannedError } = await supabase
+    .from('planned_sessions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('date', dateStr)
+    .eq('session_type', sessionType)
+    .eq('completed', false)
+    .order('created_at', { ascending: true })
+    .maybeSingle();
+
+  if (plannedError) {
+    console.error('Error finding matching planned session:', plannedError);
+    return null;
+  }
+
+  if (!plannedSession) return null;
+
+  const { error: sessionLinkError } = await supabase
+    .from('sessions')
+    .update({ planned_session_id: plannedSession.id })
+    .eq('id', sessionId);
+
+  if (sessionLinkError) {
+    console.error('Error linking session to planned session:', sessionLinkError);
+    return null;
+  }
+
+  const { error: plannedUpdateError } = await supabase
+    .from('planned_sessions')
+    .update({
+      completed: true,
+      completed_session_id: sessionId,
+    })
+    .eq('id', plannedSession.id);
+
+  if (plannedUpdateError) {
+    console.error('Error marking planned session as completed:', plannedUpdateError);
+    return null;
+  }
+
+  return plannedSession.id;
+}
+
 // Map Strava activity types to session types
 function mapStravaTypeToSessionType(stravaType: string, sportType: string | null): string | null {
   const type = (sportType || stravaType).toLowerCase();
@@ -183,6 +233,9 @@ serve(async (req) => {
 
       let stravaActivityId: string;
       let alreadyHasSession = false;
+      const sessionType = mapStravaTypeToSessionType(activity.type, activity.sport_type);
+      const activityDate = new Date(activity.start_date);
+      const dateStr = activityDate.toISOString().split('T')[0];
 
       if (existingActivity) {
         // Update existing activity
@@ -195,6 +248,16 @@ serve(async (req) => {
           syncedCount++;
           stravaActivityId = existingActivity.id;
           alreadyHasSession = !!existingActivity.synced_to_session_id;
+
+          if (existingActivity.synced_to_session_id && sessionType) {
+            await linkMatchingPlannedSession(
+              supabase,
+              user.id,
+              existingActivity.synced_to_session_id,
+              sessionType,
+              dateStr,
+            );
+          }
         } else {
           console.error('Error updating activity:', error);
           continue;
@@ -218,12 +281,7 @@ serve(async (req) => {
 
       // Create a session for this activity if it doesn't have one yet
       if (!alreadyHasSession) {
-        const sessionType = mapStravaTypeToSessionType(activity.type, activity.sport_type);
-        
         if (sessionType) {
-          const activityDate = new Date(activity.start_date);
-          const dateStr = activityDate.toISOString().split('T')[0];
-          
           // Convert distance from meters to km
           const distanceKm = activity.distance ? activity.distance / 1000 : null;
           // Convert time from seconds to minutes
@@ -236,8 +294,13 @@ serve(async (req) => {
             description: `${activity.name} (Strava)`,
             notes: `Importado desde Strava\nTipo: ${activity.sport_type || activity.type}${activity.total_elevation_gain ? `\nDesnivel: ${activity.total_elevation_gain}m` : ''}`,
             distance_km: distanceKm,
+            elevation_gain_m: activity.total_elevation_gain || null,
             time_min: timeMin,
             duration_min: timeMin,
+            status: 'completed',
+            completed_at: activity.start_date,
+            started_at: activity.start_date,
+            paused_ms: 0,
           };
 
           const { data: newSession, error: sessionError } = await supabase
@@ -252,6 +315,14 @@ serve(async (req) => {
               .from('strava_activities')
               .update({ synced_to_session_id: newSession.id })
               .eq('id', stravaActivityId);
+
+            await linkMatchingPlannedSession(
+              supabase,
+              user.id,
+              newSession.id,
+              sessionType,
+              dateStr,
+            );
             
             sessionsCreated++;
             console.log(`Created session for activity: ${activity.name}`);

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
-import { Mountain, Dumbbell, Layers, ArrowLeft, Footprints, Bike } from 'lucide-react';
+import { Mountain, Dumbbell, Layers, ArrowLeft } from 'lucide-react';
 
 export type SessionTypeValue = 'boulder' | 'rope' | 'hybrid' | 'training' | 'running' | 'bike';
 
@@ -30,18 +30,6 @@ const sessionTypeOptions: { value: SessionTypeValue; label: string; description:
     description: 'Bloques y vías',
     icon: <Layers className="h-6 w-6 sm:h-7 sm:w-7" />
   },
-  { 
-    value: 'running', 
-    label: 'Running', 
-    description: 'Carrera y trail',
-    icon: <Footprints className="h-6 w-6 sm:h-7 sm:w-7" />
-  },
-  {
-    value: 'bike',
-    label: 'Bici',
-    description: 'Carretera, gravel, MTB o rodillo',
-    icon: <Bike className="h-6 w-6 sm:h-7 sm:w-7" />
-  },
 ];
 
 export default function SessionTypeStep({ value, onChange, onNext, onBack }: SessionTypeStepProps) {
@@ -53,7 +41,9 @@ export default function SessionTypeStep({ value, onChange, onNext, onBack }: Ses
     <div className="space-y-4">
       <div className="text-center">
         <h2 className="text-2xl font-bold">¿Qué tipo de sesión vas a registrar?</h2>
-        <p className="text-muted-foreground mt-2">Selecciona la modalidad principal del entrenamiento</p>
+        <p className="text-muted-foreground mt-2">
+          Selecciona la modalidad principal. Running y bici se sincronizan solo desde Strava.
+        </p>
       </div>
 
       <div className="grid gap-3">

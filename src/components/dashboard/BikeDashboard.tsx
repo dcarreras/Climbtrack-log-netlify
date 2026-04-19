@@ -4,6 +4,17 @@ import { SessionData } from '@/utils/metricsUtils';
 
 interface Props { sessions: SessionData[] }
 
+interface TooltipEntry {
+  name?: string | number;
+  value?: string | number;
+}
+
+interface TooltipContentProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
 const T = {
   bg: '#050505', bgCard: '#131313', ink: '#FAFAF9',
   inkMuted: 'rgba(250,250,249,0.62)', inkFaint: 'rgba(250,250,249,0.38)',
@@ -61,14 +72,14 @@ export default function BikeDashboard({ sessions }: Props) {
     elev: Math.round(bikeSessions.reduce((t, s) => t + (Number(s.elevation_gain_m) || 0), 0)),
   }), [bikeSessions]);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (!active || !payload?.length) return null;
     return (
       <div style={{ background: T.bgCard, border: `1px solid ${T.rule}`,
         padding: '10px 14px', fontFamily: T.sans, fontSize: 12, color: T.ink }}>
         <div style={{ marginBottom: 6, color: T.inkFaint, fontSize: 10,
           textTransform: 'uppercase', letterSpacing: '0.12em' }}>Sem. {label}</div>
-        {payload.map((e: any, i: number) => (
+        {payload.map((e, i) => (
           <div key={i} style={{ color: T.inkMuted }}>{e.name}: <span style={{ color: T.ink, fontWeight: 600 }}>{e.value}</span></div>
         ))}
       </div>

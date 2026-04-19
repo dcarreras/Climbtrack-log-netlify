@@ -72,6 +72,7 @@ export type Database = {
           hold_type: Database["public"]["Enums"]["hold_type"] | null
           id: string
           notes: string | null
+          order_index: number
           sent: boolean
           session_id: string
           style: Database["public"]["Enums"]["climb_style"] | null
@@ -90,6 +91,7 @@ export type Database = {
           hold_type?: Database["public"]["Enums"]["hold_type"] | null
           id?: string
           notes?: string | null
+          order_index?: number
           sent?: boolean
           session_id: string
           style?: Database["public"]["Enums"]["climb_style"] | null
@@ -108,6 +110,7 @@ export type Database = {
           hold_type?: Database["public"]["Enums"]["hold_type"] | null
           id?: string
           notes?: string | null
+          order_index?: number
           sent?: boolean
           session_id?: string
           style?: Database["public"]["Enums"]["climb_style"] | null
@@ -328,6 +331,7 @@ export type Database = {
       sessions: {
         Row: {
           body_weight_kg: number | null
+          completed_at: string | null
           created_at: string
           date: string
           description: string | null
@@ -338,7 +342,12 @@ export type Database = {
           id: string
           mood: string | null
           notes: string | null
+          paused_at: string | null
+          paused_ms: number
+          planned_session_id: string | null
           rpe_1_10: number | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["session_status"]
           session_type: Database["public"]["Enums"]["session_type"]
           time_min: number | null
           updated_at: string
@@ -346,6 +355,7 @@ export type Database = {
         }
         Insert: {
           body_weight_kg?: number | null
+          completed_at?: string | null
           created_at?: string
           date?: string
           description?: string | null
@@ -356,7 +366,12 @@ export type Database = {
           id?: string
           mood?: string | null
           notes?: string | null
+          paused_at?: string | null
+          paused_ms?: number
+          planned_session_id?: string | null
           rpe_1_10?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
           session_type?: Database["public"]["Enums"]["session_type"]
           time_min?: number | null
           updated_at?: string
@@ -364,6 +379,7 @@ export type Database = {
         }
         Update: {
           body_weight_kg?: number | null
+          completed_at?: string | null
           created_at?: string
           date?: string
           description?: string | null
@@ -374,13 +390,25 @@ export type Database = {
           id?: string
           mood?: string | null
           notes?: string | null
+          paused_at?: string | null
+          paused_ms?: number
+          planned_session_id?: string | null
           rpe_1_10?: number | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
           session_type?: Database["public"]["Enums"]["session_type"]
           time_min?: number | null
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sessions_planned_session_id_fkey"
+            columns: ["planned_session_id"]
+            isOneToOne: false
+            referencedRelation: "planned_sessions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sessions_gym_id_fkey"
             columns: ["gym_id"]
@@ -621,6 +649,7 @@ export type Database = {
       discipline: "boulder" | "route"
       grade_system: "font" | "v-grade" | "french" | "yds"
       hold_type: "jugs" | "crimps" | "slopers" | "pinches" | "mixed"
+      session_status: "in_progress" | "completed" | "abandoned"
       session_type: "boulder" | "rope" | "hybrid" | "training" | "running" | "bike"
     }
     CompositeTypes: {
@@ -765,6 +794,7 @@ export const Constants = {
       discipline: ["boulder", "route"],
       grade_system: ["font", "v-grade", "french", "yds"],
       hold_type: ["jugs", "crimps", "slopers", "pinches", "mixed"],
+      session_status: ["in_progress", "completed", "abandoned"],
       session_type: ["boulder", "rope", "hybrid", "training", "running", "bike"],
     },
   },

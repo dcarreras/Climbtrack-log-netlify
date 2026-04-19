@@ -82,6 +82,10 @@
 }
 
 @layer base {
+  html, body, #root {
+    min-height: 100%;
+  }
+
   * {
     @apply border-border;
   }
@@ -89,11 +93,23 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Urbanist', system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  #root {
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-bold tracking-tight;
     font-family: 'Urbanist', system-ui, sans-serif;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
   }
 
   .font-display {

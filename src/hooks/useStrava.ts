@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import type { Tables } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +31,13 @@ export interface StravaActivity {
   calories: number | null;
   synced_to_session_id: string | null;
 }
+
+type StravaConnectionRow = Pick<
+  Tables<'strava_connections'>,
+  'id' | 'user_id' | 'athlete_id' | 'expires_at' | 'created_at'
+>;
+
+type StravaActivityRow = Tables<'strava_activities'>;
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_ORIGIN = (() => {
@@ -91,14 +99,14 @@ export const useStrava = () => {
     queryFn: async () => {
       if (!user?.id) return null;
 
-      const { data, error } = await (supabase
-        .from('strava_connections' as any)
+      const { data, error } = await supabase
+        .from('strava_connections')
         .select('id, user_id, athlete_id, expires_at, created_at')
         .eq('user_id', user.id)
-        .maybeSingle() as any);
+        .maybeSingle();
       
       if (error) throw error;
-      return data as StravaConnection | null;
+      return (data as StravaConnectionRow | null) satisfies StravaConnection | null;
     },
     enabled: !!user?.id,
   });
@@ -109,14 +117,14 @@ export const useStrava = () => {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      const { data, error } = await (supabase
-        .from('strava_activities' as any)
+      const { data, error } = await supabase
+        .from('strava_activities')
         .select('*')
         .eq('user_id', user.id)
-        .order('start_date', { ascending: false }) as any);
+        .order('start_date', { ascending: false });
       
       if (error) throw error;
-      return data as StravaActivity[];
+      return (data as StravaActivityRow[]) satisfies StravaActivity[];
     },
     enabled: !!connection && !!user?.id,
   });
@@ -168,7 +176,7 @@ export const useStrava = () => {
           variant: 'destructive',
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error connecting Strava:', error);
       toast({
         title: 'Error',
@@ -176,7 +184,7 @@ export const useStrava = () => {
         variant: 'destructive',
       });
     }
-  }, [toast, user?.id]);
+  }, [toast]);
 
   // Disconnect from Strava
   const disconnectMutation = useMutation({
@@ -257,7 +265,9 @@ export const useStrava = () => {
       const data = await response.json();
 
       queryClient.invalidateQueries({ queryKey: ['strava-activities', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['sessions', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['planned-sessions-pending'] });
       
       const sessionsMsg = data.sessionsCreated > 0 
         ? ` y se crearon ${data.sessionsCreated} sesiones de entrenamiento.`
@@ -266,7 +276,7 @@ export const useStrava = () => {
         title: 'Sincronizacion completada',
         description: `Se sincronizaron ${data.syncedCount} actividades${sessionsMsg}`,
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error syncing activities:', error);
       toast({
         title: 'Error de sincronizacion',

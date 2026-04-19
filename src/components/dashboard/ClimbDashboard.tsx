@@ -14,6 +14,18 @@ interface ClimbDashboardProps {
   sessions: SessionData[];
 }
 
+interface TooltipEntry {
+  color?: string;
+  name?: string | number;
+  value?: string | number;
+}
+
+interface TooltipContentProps {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string | number;
+}
+
 export default function ClimbDashboard({ sessions }: ClimbDashboardProps) {
   const [modality, setModality] = useState<Modality>('boulder');
   const [timeRange, setTimeRange] = useState<string>('4');
@@ -40,12 +52,12 @@ export default function ClimbDashboard({ sessions }: ClimbDashboardProps) {
 
   const isBoulder = modality === 'boulder';
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipContentProps) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
           <p className="font-semibold mb-1">Semana {label}</p>
-          {payload.map((entry: any, index: number) => (
+          {payload.map((entry, index) => (
             <p key={index} style={{ color: entry.color }} className="text-sm">
               {entry.name}: {entry.value}
             </p>

@@ -54,16 +54,23 @@ import MediaUpload from '@/components/media/MediaUpload';
 import MediaGallery from '@/components/media/MediaGallery';
 import EditSessionDialog from '@/components/session/EditSessionDialog';
 import { removeAttachmentFiles } from '@/lib/storage';
+import type { Tables } from '@/integrations/supabase/types';
 
-// Helper to get attachments for a specific climb
-const getClimbAttachments = (attachments: any[], climbId: string) => {
-  return attachments?.filter((a: any) => a.climb_id === climbId) || [];
+type Attachment = Tables<'attachments'>;
+type Climb = Tables<'climbs'>;
+type Gym = Pick<Tables<'gyms'>, 'name' | 'city'>;
+type Session = Tables<'sessions'> & {
+  gyms: Gym | null;
+  climbs: Climb[];
+  attachments: Attachment[];
 };
+type StravaActivity = Tables<'strava_activities'>;
 
-// Helper to get session-level attachments (no climb_id)
-const getSessionAttachments = (attachments: any[]) => {
-  return attachments?.filter((a: any) => !a.climb_id) || [];
-};
+const getClimbAttachments = (attachments: Attachment[], climbId: string) =>
+  attachments.filter((attachment) => attachment.climb_id === climbId);
+
+const getSessionAttachments = (attachments: Attachment[]) =>
+  attachments.filter((attachment) => !attachment.climb_id);
 
 export default function SessionDetail() {
   const { id } = useParams<{ id: string }>();
@@ -73,31 +80,39 @@ export default function SessionDetail() {
   const [showAddClimb, setShowAddClimb] = useState(false);
   const [showUploadMedia, setShowUploadMedia] = useState(false);
   const [showEditSession, setShowEditSession] = useState(false);
-  const [editingClimb, setEditingClimb] = useState<any>(null);
+  const [editingClimb, setEditingClimb] = useState<Climb | null>(null);
 
-  const { data: session, isLoading } = useQuery({
+  const { data: session, isLoading } = useQuery<Session>({
     queryKey: ['session', id],
     queryFn: async () => {
+      if (!id) {
+        throw new Error('Session id is required');
+      }
+
       const { data, error } = await supabase
         .from('sessions')
         .select('*, gyms(name, city), climbs(*), attachments(*)')
-        .eq('id', id!)
+        .eq('id', id)
         .single();
       
       if (error) throw error;
-      return data;
+      return data as Session;
     },
     enabled: !!id,
   });
 
   // Fetch Strava data if this session is linked
-  const { data: stravaData } = useQuery({
+  const { data: stravaData } = useQuery<StravaActivity | null>({
     queryKey: ['strava-activity', id],
     queryFn: async () => {
+      if (!id) {
+        throw new Error('Session id is required');
+      }
+
       const { data, error } = await supabase
         .from('strava_activities')
         .select('*')
-        .eq('synced_to_session_id', id!)
+        .eq('synced_to_session_id', id)
         .maybeSingle();
       
       if (error) throw error;
@@ -160,7 +175,21 @@ export default function SessionDetail() {
     );
   }
 
-  const sends = session.climbs?.filter((c: any) => c.sent).length || 0;
+  if (session.status === 'in_progress') {
+    return (
+      <AppLayout>
+        <div className="py-12 text-center space-y-4">
+          <h2 className="text-xl font-semibold">Esta sesión sigue en curso</h2>
+          <p className="text-muted-foreground">
+            El registro activo de bloque o vías se gestiona desde la pantalla de nueva sesión.
+          </p>
+          <Button onClick={() => navigate('/sessions/new')}>Reanudar sesión activa</Button>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const sends = session.climbs?.filter((c) => c.sent).length || 0;
   const attempts = session.climbs?.length || 0;
   const sendRate = attempts > 0 ? Math.round((sends / attempts) * 100) : 0;
 
@@ -465,7 +494,7 @@ export default function SessionDetail() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {session.climbs.map((climb: any) => {
+              {session.climbs.map((climb) => {
                 // Map color band to actual colors
                 const colorMap: Record<string, string> = {
                   white: 'bg-white',
@@ -602,7 +631,7 @@ export default function SessionDetail() {
                       {getClimbAttachments(session.attachments, climb.id).length > 0 && (
                         <div className="mt-3 pl-14">
                           <div className="flex gap-2 flex-wrap">
-                            {getClimbAttachments(session.attachments, climb.id).map((attachment: any) => (
+                            {getClimbAttachments(session.attachments, climb.id).map((attachment) => (
                               <div key={attachment.id} className="w-16 h-16 rounded-lg overflow-hidden">
                                 {attachment.type === 'photo' ? (
                                   <img 
