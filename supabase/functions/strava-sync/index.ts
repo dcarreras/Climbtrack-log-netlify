@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
-import { getCorsHeaders } from "../_shared/cors.ts";
+import { getAllowedOrigins, getCorsHeaders } from "../_shared/cors.ts";
 
 const STRAVA_CLIENT_ID = Deno.env.get('STRAVA_CLIENT_ID');
 const STRAVA_CLIENT_SECRET = Deno.env.get('STRAVA_CLIENT_SECRET');
@@ -142,7 +142,8 @@ async function refreshTokenIfNeeded(
 
 serve(async (req) => {
   const origin = req.headers.get('origin');
-  const corsHeaders = getCorsHeaders(origin);
+  const allowedOrigins = getAllowedOrigins();
+  const corsHeaders = getCorsHeaders(origin, allowedOrigins);
 
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
